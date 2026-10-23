@@ -27,6 +27,8 @@ export interface Listing {
   weight: string;
   seller: string;
   price: number;
+  /** Backend `quantityBags` — how many bags the seller has on offer. */
+  bags?: number;
   /** Backend `status`; undefined when the payload omits it (price fallback applies). */
   status?: ListingStatus;
   /** Owner/seller user id when the payload carries it — used to scope the seller dashboard to own listings. */

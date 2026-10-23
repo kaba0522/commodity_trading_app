@@ -4,6 +4,8 @@ import { ModeToggle } from "@/components/common/ModeToggle";
 import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { useRequirementsBrowse } from "@/features/buyer/requirements/hooks/useRequirementsBrowse";
+import { resolveBackendRole } from "@/core/auth/roleStore";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router, useLocalSearchParams } from "expo-router";
@@ -22,6 +24,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /** Seller Browse (`isRequirements` in Seller App.html): buyer requirements, By Commodity / By Buyer. */
 export function RequirementsBrowseScreen() {
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
+  const role = resolveBackendRole(session?.user);
+  const isSeller = role === "seller";
   const { buyer: buyerParam } = useLocalSearchParams<{ buyer?: string }>();
   const {
     categories,
@@ -74,7 +79,7 @@ export function RequirementsBrowseScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.title}>Buyer requirements</Text>
-        <ProfileButton />
+        {isSeller ? null : <ProfileButton />}
       </View>
       <Text style={styles.subtitle}>
         {totalCount} buyer {totalCount === 1 ? "requirement" : "requirements"}

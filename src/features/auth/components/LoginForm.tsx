@@ -1,10 +1,9 @@
 import { FormStatus } from "@/components/ui/FormStatus";
-import { OrDivider } from "@/components/ui/OrDivider";
 import { formatLocalPhoneInput } from "@/core/utils/validation";
 import { useLogin } from "@/features/auth/hooks/useLogin";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
@@ -21,12 +20,10 @@ interface LoginFormProps {
 
 /**
  * Buyer prototype login form (Buyer App.html `isLoginPhone`).
- * Both buttons trigger the same OTP request — WhatsApp is only
- * a delivery-channel variant in the prototype.
+ * OTP-only login.
  */
 export function LoginForm({ onCodeSent }: LoginFormProps) {
   const { phone, setPhone, error, success, isLoading, submit, reset } = useLogin();
-  const [channel, setChannel] = useState<"otp" | "whatsapp">("otp");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fresh form every time this screen is shown (back from OTP, after logout…).
@@ -43,9 +40,8 @@ export function LoginForm({ onCodeSent }: LoginFormProps) {
     [],
   );
 
-  async function handleSubmit(next: "otp" | "whatsapp") {
+  async function handleSubmit() {
     if (isLoading) return;
-    setChannel(next);
     const result = await submit();
     if (result) {
       // Let the user see the success response before navigating.
@@ -82,25 +78,13 @@ export function LoginForm({ onCodeSent }: LoginFormProps) {
       <View style={styles.buttons}>
         <Pressable
           style={[styles.btn, styles.btnOtp]}
-          onPress={() => handleSubmit("otp")}
+          onPress={() => handleSubmit()}
           disabled={isLoading}
         >
-          {isLoading && channel === "otp" ? (
+          {isLoading ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.btnText}>Login with OTP</Text>
-          )}
-        </Pressable>
-        <OrDivider />
-        <Pressable
-          style={[styles.btn, styles.btnWhatsapp]}
-          onPress={() => handleSubmit("whatsapp")}
-          disabled={isLoading}
-        >
-          {isLoading && channel === "whatsapp" ? (
-            <ActivityIndicator color={colors.onPrimary} />
-          ) : (
-            <Text style={styles.btnText}>Login with WhatsApp</Text>
           )}
         </Pressable>
       </View>
@@ -163,10 +147,6 @@ const styles = StyleSheet.create({
   btnOtp: {
     backgroundColor: colors.accentBlue,
     borderColor: colors.accentBlue,
-  },
-  btnWhatsapp: {
-    backgroundColor: colors.whatsapp,
-    borderColor: colors.whatsapp,
   },
   btnText: {
     fontSize: 14,

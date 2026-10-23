@@ -22,6 +22,8 @@ function goTab(target: string) {
       return router.replace("/add-listing");
     case "transport":
       return router.replace("/transport");
+    case "seller-profile":
+      return router.replace("/seller-profile");
     default:
       return router.back();
   }
@@ -36,5 +38,11 @@ export function ProfileTabBar() {
   const role = resolveBackendRole(session?.user);
   const barItems = role === "seller" ? SELLER_BAR : role === "buyer" ? BUYER_BAR : null;
   if (!barItems) return null;
-  return <AppTabBar items={barItems} active={null} onPress={goTab} />;
+  return (
+    <AppTabBar
+      items={barItems}
+      active={role === "seller" ? "seller-profile" : null}
+      onPress={goTab}
+    />
+  );
 }

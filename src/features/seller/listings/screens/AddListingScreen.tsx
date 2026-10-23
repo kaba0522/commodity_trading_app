@@ -1,4 +1,3 @@
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
@@ -79,7 +78,6 @@ export function AddListingScreen() {
             accessibilityLabel="Back to dashboard"
             fallback="/add-listing"
           />
-          <ProfileButton />
         </View>
         <Text style={styles.title}>Add listing</Text>
         <Text style={styles.subtitle}>
@@ -310,7 +308,6 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   title: {
     fontSize: 22,

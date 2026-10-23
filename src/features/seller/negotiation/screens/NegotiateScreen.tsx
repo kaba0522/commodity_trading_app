@@ -1,4 +1,3 @@
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
@@ -78,7 +77,6 @@ export function NegotiateScreen() {
           accessibilityLabel="Back to buyer requirements"
           fallback="/requirements"
         />
-        <ProfileButton />
       </View>
       <Text style={styles.title}>Negotiate</Text>
 
@@ -184,7 +182,6 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   title: {
     fontSize: 22,

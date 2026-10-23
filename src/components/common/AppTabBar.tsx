@@ -2,6 +2,7 @@ import {
   BrowseIcon,
   FreightIcon,
   PostReqIcon,
+  ProfileIcon,
   TradesIcon,
 } from "@/components/common/TabIcons";
 import { colors } from "@/theme/colors";
@@ -23,12 +24,17 @@ export const BUYER_BAR: BarItem[] = [
   { target: "freight", label: "Freight", Icon: FreightIcon },
 ];
 
-/** Seller bar: prototype tabs (Browse→requirements, Trades→orders, Add listing, Freight). */
+/**
+ * Seller bar: prototype tabs (Browse→requirements, Trades→orders,
+ * My Listings→add-listing, Freight, Profile). The account icon no longer
+ * sits in screen headers — Profile owns the last slot.
+ */
 export const SELLER_BAR: BarItem[] = [
   { target: "requirements", label: "Browse", Icon: BrowseIcon },
   { target: "orders", label: "Trades", Icon: TradesIcon },
-  { target: "add-listing", label: "Add listing", Icon: PostReqIcon },
+  { target: "add-listing", label: "My Listings", Icon: PostReqIcon },
   { target: "transport", label: "Freight", Icon: FreightIcon },
+  { target: "seller-profile", label: "Profile", Icon: ProfileIcon },
 ];
 
 interface AppTabBarProps {
@@ -43,6 +49,8 @@ interface AppTabBarProps {
  */
 export function AppTabBar({ items, active, onPress }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
+  // Five-slot seller bar needs a slightly smaller label to stay on one line.
+  const compact = items.length > 4;
 
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom + 20 }]}>
@@ -61,7 +69,12 @@ export function AppTabBar({ items, active, onPress }: AppTabBarProps) {
             accessibilityState={{ selected: focused }}
           >
             <Icon color={color} />
-            <Text style={[styles.label, { color }]}>{label}</Text>
+            <Text
+              style={[styles.label, compact && styles.labelCompact, { color }]}
+              numberOfLines={1}
+            >
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -89,5 +102,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11.5,
     fontWeight: "600",
+  },
+  labelCompact: {
+    fontSize: 10.5,
   },
 });

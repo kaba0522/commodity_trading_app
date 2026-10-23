@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -6,25 +6,34 @@ import { listingsApi, isActiveListing } from "@/features/seller/listings/api/lis
 import type { Listing } from "@/types/domain";
 
 export interface HomeRow {
-  id: number | string;
+  id: string;
   category: string;
   item: string;
+  quality: string;
   weight: string;
-  /** Null = no price on the payload (backend sends 0/missing). */
+  /** Backend `quantityBags`; 0 when the payload omits it. */
+  bags: number;
+  /** Null = no price for today (backend `price_expired` / `na`, or price 0). */
   price: number | null;
-  /** Backend `status` split (`"active"` vs `"price_expired"`). */
+  /** Backend `status` split — only `"active"` counts as live. */
   active: boolean;
 }
 
+/** `"live"` = priced only, `"needs"` = awaiting a price, null = everything. */
+export type HomeFilter = "live" | "needs" | null;
+
 /** `0`/missing prices are "no price", never a real ₹0 quote. */
 function toHomeRow(l: Listing): HomeRow {
+  const active = isActiveListing(l);
   return {
-    id: l.id as number | string,
+    id: String(l.id),
     category: l.category,
     item: l.item,
+    quality: l.quality,
     weight: l.weight,
-    price: l.price > 0 ? l.price : null,
-    active: isActiveListing(l),
+    bags: l.bags ?? 0,
+    price: active && l.price > 0 ? l.price : null,
+    active,
   };
 }
 
@@ -40,17 +49,21 @@ function timeUntil2AM(now = new Date()): string {
 }
 
 /**
- * Seller home data (Seller App.html `isHome`): the logged-in seller's own
- * listings via `GET /listings?side=SELL&status=active,price_expired,na`
+ * Seller home data (Seller App.html `isHome` → "My Listings"): the logged-in
+ * seller's own listings via `GET /listings?side=SELL&status=active,price_expired,na`
  * (backend defaults `userId` to the caller for the seller role — own rows
- * only), split by backend `status` into Active (`"active"`) vs Expired
- * (`"price_expired"` / `"na"` shell listings awaiting price).
+ * only). Each row is priced (live) or awaiting today's rate; the screen
+ * filters/groups them and edits rates inline via `PATCH /listings/:id`.
  */
 export function useSellerHome() {
-  const { session, runWithAuth } = useAuth();
+  const { runWithAuth } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -58,7 +71,7 @@ export function useSellerHome() {
     try {
       // runWithAuth refreshes the 15m access token on 401 and retries once,
       // so reopening the app after a while never shows "unauthorized".
-      // listMine = seller-associated rows only; status drives Active/Expired.
+      // listMine = seller-associated rows only; status drives live vs needs-price.
       setListings(await runWithAuth((token) => listingsApi.listMine(token)));
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load today's listings"));
@@ -77,6 +90,13 @@ export function useSellerHome() {
     };
   }, [load]);
 
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
+
   // Refetch every time the dashboard regains focus (e.g. back from the
   // add-listing form after a publish) so newly created listings appear.
   useFocusEffect(
@@ -86,30 +106,65 @@ export function useSellerHome() {
   );
 
   const rows = useMemo(() => listings.map(toHomeRow), [listings]);
-  const activeRows = useMemo(() => rows.filter((r) => r.active), [rows]);
-  const expiredRows = useMemo(() => rows.filter((r) => !r.active), [rows]);
-  const liveCount = rows.length;
-  const pricedCount = activeRows.length;
-  const expiredCount = expiredRows.length;
+  const liveCount = useMemo(
+    () => rows.filter((r) => r.price !== null).length,
+    [rows],
+  );
+  const needsCount = rows.length - liveCount;
+  const allPriced = rows.length > 0 && needsCount === 0;
   // Every listing price-expired (e.g. after the 2 AM reset): rows kept,
   // all awaiting fresh prices.
-  const expired = liveCount > 0 && pricedCount === 0;
+  const expired = rows.length > 0 && liveCount === 0;
   const expiryLabel = expired
     ? "Expired at 2 AM"
     : `Prices expire in ${timeUntil2AM()}`;
 
+  /** Save today's rate for one listing. Resolves true when the PATCH succeeded. */
+  const savePrice = useCallback(
+    async (id: string, price: number): Promise<boolean> => {
+      setSavingId(id);
+      setSaveError(null);
+      try {
+        await runWithAuth((token) =>
+          listingsApi.update(id, { price }, token),
+        );
+        setListings((prev) =>
+          prev.map((l) =>
+            String(l.id) === id
+              ? { ...l, price, status: "active" as const }
+              : l,
+          ),
+        );
+        setSavedId(id);
+        if (savedTimer.current) clearTimeout(savedTimer.current);
+        savedTimer.current = setTimeout(() => setSavedId(null), 2500);
+        return true;
+      } catch (e) {
+        setSaveError(getFriendlyApiError(e, "Could not save the rate"));
+        return false;
+      } finally {
+        setSavingId(null);
+      }
+    },
+    [runWithAuth],
+  );
+
+  const clearSaveError = useCallback(() => setSaveError(null), []);
+
   return {
-    firmName: session?.user?.firmName ?? "",
     rows,
-    activeRows,
-    expiredRows,
     liveCount,
-    pricedCount,
-    expiredCount,
+    needsCount,
+    allPriced,
     expired,
     expiryLabel,
     isLoading,
     error,
     retry: load,
+    savingId,
+    savedId,
+    saveError,
+    savePrice,
+    clearSaveError,
   };
 }

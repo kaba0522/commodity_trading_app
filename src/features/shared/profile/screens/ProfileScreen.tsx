@@ -17,7 +17,17 @@ import { spacing } from "@/theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Common profile (`isProfile` in both prototypes), parameterized by role. */
-export function ProfileScreen() {
+interface ProfileScreenProps {
+  /** Render the back button (false when the screen is a tab). */
+  showBack?: boolean;
+  /** Render the shared bottom bar (false when the tab navigator already does). */
+  showTabBar?: boolean;
+}
+
+export function ProfileScreen({
+  showBack = true,
+  showTabBar = true,
+}: ProfileScreenProps = {}) {
   const { session, signOut, runWithAuth, mergeSessionUser } = useAuth();
   const role = resolveBackendRole(session?.user);
   const { main, share, legal } = useProfile(role);
@@ -83,12 +93,16 @@ export function ProfileScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: Math.max(insets.top + spacing.md, 62),
-          paddingBottom: insets.bottom + spacing.xl,
+          paddingTop: showBack
+            ? Math.max(insets.top + spacing.md, 62)
+            : insets.top + spacing.md,
+          paddingBottom: showTabBar
+            ? insets.bottom + spacing.xl
+            : spacing.xl,
         },
       ]}
     >
-      <BackButton />
+      {showBack ? <BackButton /> : null}
 
       <View style={styles.identity}>
         <View style={styles.avatar}>
@@ -129,7 +143,7 @@ export function ProfileScreen() {
 
       <Button title={signingOut ? "Signing out…" : "Sign out"} variant="ghost" onPress={handleSignOut} />
     </ScrollView>
-      <ProfileTabBar />
+      {showTabBar ? <ProfileTabBar /> : null}
     </View>
   );
 }

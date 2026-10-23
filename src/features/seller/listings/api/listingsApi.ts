@@ -391,6 +391,7 @@ function normalizeListing(
       ? rawStatus
       : undefined;
   const sellerId = pickOwnerId(obj);
+  const bags = pickNumber(obj, "quantityBags", "bags");
   return {
     id,
     category: category as Category,
@@ -399,6 +400,7 @@ function normalizeListing(
     weight,
     seller,
     price: pickNumber(obj, "price") ?? 0,
+    ...(bags != null ? { bags } : {}),
     ...(status ? { status } : {}),
     ...(sellerId ? { sellerId } : {}),
   } as Listing;
