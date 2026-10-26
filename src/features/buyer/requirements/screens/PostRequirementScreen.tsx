@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Buyer Post requirement: category → commodity (live backend UUIDs),
- * quantity (required), target price (optional); publishes `side: "BUY"`.
+ * quantity (required); publishes `side: "BUY"`. Price is agreed in negotiation.
  */
 export function PostRequirementScreen() {
   const insets = useSafeAreaInsets();
@@ -82,7 +82,7 @@ export function PostRequirementScreen() {
           <Text style={styles.title}>Post requirement</Text>
         </View>
         <Text style={styles.subtitle}>
-          Tell sellers what you want to buy and at what target price.
+          Tell sellers what you want to buy. You can discuss pricing during negotiation.
         </Text>
 
         <Dropdown
@@ -137,23 +137,6 @@ export function PostRequirementScreen() {
           />
           {fieldErrors.quantity ? (
             <Text style={styles.fieldError}>{fieldErrors.quantity}</Text>
-          ) : null}
-        </View>
-
-        <View>
-          <Text style={styles.label}>
-            Target price per bag (Rs.) <Text style={styles.optionalTag}>optional</Text>
-          </Text>
-          <TextInput
-            style={[styles.input, fieldErrors.price ? styles.inputError : null]}
-            value={values.price}
-            onChangeText={(v) => setField("price", v.replace(/[^0-9.]/g, ""))}
-            placeholder="Leave empty = open to offers"
-            placeholderTextColor={colors.muted}
-            keyboardType="decimal-pad"
-          />
-          {fieldErrors.price ? (
-            <Text style={styles.fieldError}>{fieldErrors.price}</Text>
           ) : null}
         </View>
 

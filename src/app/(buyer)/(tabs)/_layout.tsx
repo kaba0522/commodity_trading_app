@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { router, Tabs } from "expo-router";
 import { AppTabBar, BUYER_BAR } from "@/components/common/AppTabBar";
 
 interface TabBarProps {
@@ -12,7 +12,13 @@ function BuyerBar({ state, navigation }: TabBarProps) {
     <AppTabBar
       items={BUYER_BAR}
       active={active}
-      onPress={(target) => navigation.navigate(target)}
+      onPress={(target) => {
+        if (target === "profile") {
+          router.push("/profile");
+          return;
+        }
+        navigation.navigate(target);
+      }}
     />
   );
 }

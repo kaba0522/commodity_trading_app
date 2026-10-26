@@ -19,8 +19,7 @@ interface LoginFormProps {
 }
 
 /**
- * Buyer prototype login form (Buyer App.html `isLoginPhone`).
- * OTP-only login.
+ * Shared phone-number sign-in for buyer and seller accounts.
  */
 export function LoginForm({ onCodeSent }: LoginFormProps) {
   const { phone, setPhone, error, success, isLoading, submit, reset } = useLogin();
@@ -52,7 +51,7 @@ export function LoginForm({ onCodeSent }: LoginFormProps) {
 
   return (
     <View>
-      {/* <Text style={styles.label}>Phone number</Text> */}
+      <Text style={styles.label}>Mobile number</Text>
       <View style={styles.row}>
         <View style={[styles.input, styles.prefix]}>
           <Text style={styles.prefixText}>+91</Text>
@@ -67,6 +66,7 @@ export function LoginForm({ onCodeSent }: LoginFormProps) {
           onChangeText={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))}
           placeholder="Enter your phone number"
           placeholderTextColor={colors.muted}
+          accessibilityLabel="Mobile number"
           keyboardType="number-pad"
           maxLength={11}
           autoCorrect={false}
@@ -94,9 +94,9 @@ export function LoginForm({ onCodeSent }: LoginFormProps) {
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
     color: colors.text,
   },
   row: {
@@ -104,17 +104,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   input: {
-    minHeight: 48,
+    minHeight: 54,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    backgroundColor: colors.background,
+    borderRadius: 12,
+    backgroundColor: colors.card,
     fontSize: 16,
     color: colors.text,
   },
   prefix: {
-    width: 56,
-    flex: 0,
+    width: 62,
+    flexGrow: 0,
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 0,
@@ -132,14 +133,12 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   buttons: {
-    marginTop: spacing.sm,
-    gap: 0,
+    marginTop: spacing.md,
   },
   btn: {
-    height: 46,
+    height: 54,
     width: "100%",
-    marginTop: spacing.sm,
-    borderRadius: 999,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -149,7 +148,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accentBlue,
   },
   btnText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "700",
     color: colors.onPrimary,
   },

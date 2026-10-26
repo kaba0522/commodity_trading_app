@@ -1,12 +1,11 @@
 import { router } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** eBay-style sign-in (`isLoginPhone` in Buyer App.html). */
+/** Shared phone sign-in for buyer and seller accounts. */
 export function LoginScreen() {
   const insets = useSafeAreaInsets();
   return (
@@ -22,10 +21,10 @@ export function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.hero}>
-          <BrandLogo />
-          <Text style={styles.title}>Hello. Sign in to continue.</Text>
+          <Text style={styles.eyebrow}>INVITE-ONLY NETWORK</Text>
+          <Text style={styles.title}>Commodity Trading</Text>
           <Text style={styles.subtitle}>
-            See today&apos;s prices from all sellers.
+            Sign in to view market prices and manage your business.
           </Text>
         </View>
         <LoginForm
@@ -43,15 +42,8 @@ export function LoginScreen() {
         />
         <View style={styles.footer}>
           <Text style={styles.invite}>
-            Only invited buyers/sellers can sign in. Contact your broker for access.
+            Only invited users can sign in. Contact your broker for access.
           </Text>
-          <View style={styles.links}>
-            <Text style={styles.link}>Terms</Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.link}>Privacy</Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.link}>Help</Text>
-          </View>
         </View>
       </ScrollView>
     </View>
@@ -66,49 +58,45 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    gap: 20,
+    paddingBottom: spacing.xl,
+    gap: spacing.xl,
   },
   hero: {
     marginTop: spacing.xl,
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    color: colors.primaryDark,
+    backgroundColor: colors.primaryTint,
+    borderRadius: 999,
+    overflow: "hidden",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "800",
     color: colors.text,
-    marginTop: spacing.lg,
-    textAlign: "center",
+    marginTop: spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.prototypeMuted,
-    marginTop: spacing.xs,
-    textAlign: "center",
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.muted,
   },
   footer: {
     marginTop: "auto",
-    paddingTop: 20,
+    paddingTop: spacing.xl,
     alignItems: "center",
-    gap: spacing.sm,
   },
   invite: {
     fontSize: 12.5,
-    color: colors.prototypeMuted,
-    textAlign: "center",
-  },
-  links: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  link: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  dot: {
-    fontSize: 12.5,
+    lineHeight: 18,
     color: colors.muted,
+    textAlign: "center",
   },
 });

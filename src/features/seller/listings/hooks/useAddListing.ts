@@ -58,7 +58,8 @@ const INITIAL_VALUES: AddListingValues = {
  * `itemName` is never a client input — the backend derives it from the commodity.
  */
 export function useAddListing() {
-  const { runWithAuth } = useAuth();
+  const { runWithAuth, session } = useAuth();
+  const defaultPaymentTerms = session?.user.defaultPaymentTerms ?? null;
   const [values, setValues] = useState<AddListingValues>(INITIAL_VALUES);
   const [fieldErrors, setFieldErrors] = useState<AddListingFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -131,9 +132,11 @@ export function useAddListing() {
         if (key && !nextErrors[key]) nextErrors[key] = issue.message;
       }
     }
-    if (values.overridePayment && !values.paymentTerms.trim()) {
+    const needsListingPaymentTerms =
+      values.overridePayment || defaultPaymentTerms === null;
+    if (needsListingPaymentTerms && !values.paymentTerms.trim()) {
       nextErrors.paymentTerms =
-        "Enter payment terms in days or uncheck the override";
+        "Enter payment terms in days, or set a default in your profile";
     }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
@@ -151,12 +154,12 @@ export function useAddListing() {
             weightKg: values.weightKg.trim()
               ? Number(values.weightKg.trim())
               : null,
-            price: Number(values.price.trim()),
+            price: values.price.trim() ? Number(values.price.trim()) : null,
             moisture: values.moisture.trim() || null,
             color: values.color.trim() || null,
             size: values.size.trim() || null,
             // Backend `optionalPositiveInt`: days as a number, never free text.
-            paymentTerms: values.overridePayment
+            paymentTerms: needsListingPaymentTerms
               ? Number(values.paymentTerms.trim())
               : null,
             notes: values.notes.trim() || null,
@@ -193,6 +196,7 @@ export function useAddListing() {
     categoriesLoading,
     commodities,
     commoditiesLoading,
+    defaultPaymentTerms,
     categoryNameById,
     commodityNameById,
   };

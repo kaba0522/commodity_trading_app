@@ -18,12 +18,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Firm-level fallback (Seller App.html `FIRM_PAYMENT_DEFAULT`). */
-const FIRM_PAYMENT_DEFAULT = "10-15 days";
-
 /**
  * Seller Add listing: category → commodity (live backend UUIDs), quality
- * grade, quantity (required), weight/price (optional); publishes
+ * grade, quantity (required), weight and price (optional); publishes
  * `side: "SELL"` to the real backend. `itemName` is derived server-side
  * from the commodity, so there is no free-text item field.
  */
@@ -41,6 +38,7 @@ export function AddListingScreen() {
     categoriesLoading,
     commodities,
     commoditiesLoading,
+    defaultPaymentTerms,
     categoryNameById,
     commodityNameById,
   } = useAddListing();
@@ -141,7 +139,9 @@ export function AddListingScreen() {
             ) : null}
           </View>
           <View style={styles.flex1}>
-            <Text style={styles.label}>Price per bag (Rs.)</Text>
+            <Text style={styles.label}>
+              Price per bag (Rs.) <Text style={styles.optionalTag}>optional</Text>
+            </Text>
             <TextInput
               style={[
                 styles.input,
@@ -149,7 +149,7 @@ export function AddListingScreen() {
               ]}
               value={values.price}
               onChangeText={(v) => setField("price", v.replace(/[^0-9.]/g, ""))}
-              placeholder="12600"
+              placeholder="Leave blank = open to offers"
               placeholderTextColor={colors.muted}
               keyboardType="decimal-pad"
             />
@@ -240,28 +240,36 @@ export function AddListingScreen() {
           </View>
         </View>
 
-        <Pressable
-          onPress={() => setField("overridePayment", !values.overridePayment)}
-          style={styles.checkRow}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: values.overridePayment }}
-        >
-          <View
-            style={[
-              styles.checkbox,
-              values.overridePayment ? styles.checkboxChecked : null,
-            ]}
-          >
-            {values.overridePayment ? (
-              <Text style={styles.checkboxTick}>✓</Text>
-            ) : null}
-          </View>
-          <Text style={styles.checkLabel}>
-            Override payment terms for this listing
+        {defaultPaymentTerms === null ? (
+          <Text style={styles.muted}>
+            Set payment terms for this listing. The backend requires listing
+            terms or a seller default in your profile.
           </Text>
-        </Pressable>
-        {values.overridePayment ? (
+        ) : (
+          <Pressable
+            onPress={() => setField("overridePayment", !values.overridePayment)}
+            style={styles.checkRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: values.overridePayment }}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                values.overridePayment ? styles.checkboxChecked : null,
+              ]}
+            >
+              {values.overridePayment ? (
+                <Text style={styles.checkboxTick}>✓</Text>
+              ) : null}
+            </View>
+            <Text style={styles.checkLabel}>
+              Override payment terms for this listing
+            </Text>
+          </Pressable>
+        )}
+        {values.overridePayment || defaultPaymentTerms === null ? (
           <View>
+            <Text style={styles.label}>Payment terms (days)</Text>
             <TextInput
               style={[
                 styles.input,
@@ -280,7 +288,7 @@ export function AddListingScreen() {
           </View>
         ) : (
           <Text style={styles.muted}>
-            Firm default applies: {FIRM_PAYMENT_DEFAULT}
+            Firm default applies: {defaultPaymentTerms} days
           </Text>
         )}
 

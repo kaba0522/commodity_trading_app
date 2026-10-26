@@ -2,7 +2,14 @@
 
 export type Role = "buyer" | "seller";
 
-export type Category = "Besan" | "Dal" | "Matar" | "Chana" | "Rajma" | "Rice";
+export type Category =
+  | "Besan"
+  | "Dal"
+  | "Matar"
+  | "Chana"
+  | "Rajma"
+  | "Rice"
+  | "Uncategorized";
 
 /**
  * Backend listing lifecycle. Service filter values (`listing.service
@@ -29,6 +36,10 @@ export interface Listing {
   price: number;
   /** Backend `quantityBags` — how many bags the seller has on offer. */
   bags?: number;
+  /** Per-listing payment terms in days; copied from the seller's profile on create. */
+  paymentTerms?: number | null;
+  /** Backend-configured expiry for the current price, serialized as an ISO date. */
+  priceValidUntil?: string | null;
   /** Backend `status`; undefined when the payload omits it (price fallback applies). */
   status?: ListingStatus;
   /** Owner/seller user id when the payload carries it — used to scope the seller dashboard to own listings. */

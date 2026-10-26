@@ -137,6 +137,15 @@ export function useBrowse() {
       }));
   }, [sellerSearch, listings]);
 
+  const sellerListingCounts = useMemo(
+    () =>
+      listings.reduce<Record<string, number>>((counts, listing) => {
+        counts[listing.seller] = (counts[listing.seller] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [listings],
+  );
+
   function toggleSeller(seller: string) {
     setCollapsed((prev) =>
       prev.includes(seller)
@@ -155,6 +164,7 @@ export function useBrowse() {
     setSellerSearch,
     groups,
     sellerGroups,
+    sellerListingCounts,
     collapsed,
     toggleSeller,
     isLoading,

@@ -194,14 +194,38 @@ function pickCategory(
   categoryById?: Map<string, string>,
   commodityToCategory?: Map<string, string>,
 ): string {
+  const rawCategory = obj["category"];
   const direct =
-    nestedName(obj["category"]) ||
+    (typeof rawCategory === "string" ? rawCategory.trim() : "") ||
+    (rawCategory !== null && typeof rawCategory === "object"
+      ? nestedName(rawCategory)
+      : "") ||
     pickString(obj, "categoryName", "category_name", "categoryLabel");
-  if (direct) return direct;
-  const viaCommodity = nestedName((obj["commodity"] as Record<string, unknown> | undefined)?.["category"]);
-  if (viaCommodity) return viaCommodity;
-  const commodityName = nestedName(obj["commodity"]);
-  if (commodityName && !commodityName.includes("QA")) return commodityName;
+  if (direct) {
+    const resolved = categoryById?.get(direct);
+    if (resolved) return resolved;
+    if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(direct)) {
+      return direct;
+    }
+  }
+  const rawCategoryId =
+    rawCategory !== null && typeof rawCategory === "object"
+      ? toStringId(
+          (rawCategory as Record<string, unknown>)["id"] ??
+            (rawCategory as Record<string, unknown>)["_id"],
+        )
+      : toStringId(rawCategory);
+  if (rawCategoryId && categoryById?.has(rawCategoryId)) {
+    return categoryById.get(rawCategoryId) ?? "";
+  }
+  const commodity = obj["commodity"];
+  const commodityCategory =
+    commodity !== null && typeof commodity === "object"
+      ? nestedName((commodity as Record<string, unknown>)["category"])
+      : "";
+  if (commodityCategory) {
+    return categoryById?.get(commodityCategory) ?? commodityCategory;
+  }
   if (categoryById || commodityToCategory) {
     const cid = toStringId(obj["categoryId"] ?? obj["category_id"]);
     if (cid && categoryById?.get(cid)) return categoryById.get(cid) as string;
@@ -241,11 +265,7 @@ async function fetchCatalogMaps(token: string): Promise<{
   const commodityToCategory = new Map<string, string>();
   try {
     const catRaw = await apiFetch<unknown>(apiUrl(COMMODITY_CATEGORIES_ENDPOINTS.list), { token });
-    const catList: unknown[] = Array.isArray(catRaw)
-      ? catRaw
-      : Array.isArray((catRaw as Record<string, unknown>)?.["data"])
-        ? ((catRaw as Record<string, unknown>)["data"] as unknown[])
-        : [];
+    const catList = unwrapList(catRaw);
     for (const e of catList) {
       if (e && typeof e === "object") {
         const o = e as Record<string, unknown>;
@@ -255,11 +275,7 @@ async function fetchCatalogMaps(token: string): Promise<{
       }
     }
     const comRaw = await apiFetch<unknown>(apiUrl(COMMODITIES_ENDPOINTS.list()), { token });
-    const comList: unknown[] = Array.isArray(comRaw)
-      ? comRaw
-      : Array.isArray((comRaw as Record<string, unknown>)?.["data"])
-        ? ((comRaw as Record<string, unknown>)["data"] as unknown[])
-        : [];
+    const comList = unwrapList(comRaw);
     for (const e of comList) {
       if (e && typeof e === "object") {
         const o = e as Record<string, unknown>;
@@ -312,7 +328,14 @@ function unwrapList(raw: unknown): Record<string, unknown>[] {
   const pick = (
     obj: Record<string, unknown>,
   ): Record<string, unknown>[] | null => {
-    for (const k of ["items", "results", "listings", "rows"]) {
+    for (const k of [
+      "items",
+      "results",
+      "listings",
+      "categories",
+      "commodities",
+      "rows",
+    ]) {
       const v = obj[k];
       if (Array.isArray(v)) return v as Record<string, unknown>[];
     }
@@ -376,7 +399,8 @@ function normalizeListing(
     (weightKg != null ? `${weightKg}KG` : "");
   const seller = pickSeller(obj);
   const category =
-    pickCategory(obj, maps?.categoryById, maps?.commodityToCategory) || "Rice";
+    pickCategory(obj, maps?.categoryById, maps?.commodityToCategory) ||
+    "Uncategorized";
   // Backend `VALID_STATUSES`: active, price_expired, na, withdrawn, traded
   // (schema also defines `sold_out`). Kept verbatim so the Active/Expired
   // tabs split on the real lifecycle.
@@ -400,6 +424,8 @@ function normalizeListing(
     weight,
     seller,
     price: pickNumber(obj, "price") ?? 0,
+    paymentTerms: pickNumber(obj, "paymentTerms", "payment_terms"),
+    priceValidUntil: pickString(obj, "priceValidUntil", "price_valid_until") || null,
     ...(bags != null ? { bags } : {}),
     ...(status ? { status } : {}),
     ...(sellerId ? { sellerId } : {}),

@@ -1,7 +1,6 @@
 import { CategoryChips } from "@/components/common/CategoryChips";
 import { ListingRow } from "@/components/common/ListingRow";
 import { ModeToggle } from "@/components/common/ModeToggle";
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { useBrowse } from "@/features/buyer/browse/hooks/useBrowse";
 import type { BrowseRow } from "@/features/buyer/browse/hooks/useBrowse";
@@ -34,6 +33,7 @@ export function BrowseScreen() {
     setSellerSearch,
     groups,
     sellerGroups,
+    sellerListingCounts,
     collapsed,
     toggleSeller,
     isLoading,
@@ -61,6 +61,13 @@ export function BrowseScreen() {
         weight: row.weight,
         seller: row.seller,
         price: String(row.price),
+        bags: String(row.bags ?? ""),
+        paymentTerms:
+          row.paymentTerms !== null && row.paymentTerms !== undefined
+            ? String(row.paymentTerms)
+            : "",
+        priceValidUntil: row.priceValidUntil ?? "",
+        sellerListingCount: String(sellerListingCounts[row.seller] ?? 1),
       },
     });
   }
@@ -73,8 +80,10 @@ export function BrowseScreen() {
       ]}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Browse</Text>
-        <ProfileButton />
+        <View style={styles.titleBlock}>
+          <Text style={styles.eyebrow}>Buyer view</Text>
+          <Text style={styles.title}>Today&apos;s market</Text>
+        </View>
       </View>
       <ModeToggle
         first="By Commodity"
@@ -197,6 +206,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
+  },
+  titleBlock: {
+    gap: 2,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: colors.muted,
   },
   title: {
     fontSize: 22,

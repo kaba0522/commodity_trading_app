@@ -41,27 +41,26 @@ export function ModeToggle({ first, second, value, onChange }: ModeToggleProps) 
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
-    backgroundColor: colors.searchBg,
-    borderRadius: 10,
-    padding: 3,
-    gap: 3,
+    backgroundColor: "transparent",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   option: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+    paddingVertical: 10,
     alignItems: "center",
   },
   optionActive: {
-    backgroundColor: colors.card,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+    borderBottomColor: colors.primary,
   },
   label: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: colors.muted,
   },
   labelActive: {
-    color: colors.primaryDark,
+    color: colors.primary,
   },
 });

@@ -102,6 +102,10 @@ function toId(v: unknown): string | number | null {
 /** Coerce one BUY-side listing into the Seller requirements row shape. */
 function normalizeRequirement(
   obj: Record<string, unknown>,
+  categoryMaps?: {
+    categoryById: ReadonlyMap<string, string>;
+    commodityToCategory: ReadonlyMap<string, string>;
+  },
 ): BuyerRequirement | null {
   const id =
     toId(obj["id"]) ??
@@ -128,18 +132,75 @@ function normalizeRequirement(
     "product",
   );
   if (id == null || !item) return null;
+  const rawCategory = obj["category"];
+  const categoryObject =
+    rawCategory !== null && typeof rawCategory === "object"
+      ? (rawCategory as Record<string, unknown>)
+      : null;
+  const directCategoryName =
+    pickString(obj, "categoryName", "category_name", "categoryLabel") ||
+    (categoryObject
+      ? pickString(categoryObject, "name", "title", "label")
+      : "") ||
+    (typeof rawCategory === "string" &&
+    !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(rawCategory)
+      ? rawCategory
+      : "");
+  const categoryId =
+    toId(obj["categoryId"]) ??
+    toId(obj["category_id"]) ??
+    toId(categoryObject?.["id"]) ??
+    toId(categoryObject?.["_id"]) ??
+    (typeof rawCategory === "string" ? toId(rawCategory) : null);
+  const commodity = obj["commodity"];
+  const commodityObject =
+    commodity !== null && typeof commodity === "object"
+      ? (commodity as Record<string, unknown>)
+      : null;
+  const commodityId =
+    toId(obj["commodityId"]) ??
+    toId(obj["commodity_id"]) ??
+    (commodityObject
+      ? toId(commodityObject["id"] ?? commodityObject["_id"])
+      : null);
+  const commodityCategory = commodityObject?.["category"];
+  const nestedCommodityCategory =
+    commodityCategory !== null && typeof commodityCategory === "object"
+      ? (commodityCategory as Record<string, unknown>)
+      : null;
+  const nestedCommodityCategoryId =
+    toId(nestedCommodityCategory?.["id"]) ??
+    toId(nestedCommodityCategory?.["_id"]) ??
+    (typeof commodityCategory === "string"
+      ? toId(commodityCategory)
+      : null);
+  const nestedCommodityCategoryName =
+    (nestedCommodityCategory
+      ? pickString(nestedCommodityCategory, "name", "title", "label")
+      : "") ||
+    (typeof commodityCategory === "string" &&
+    !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(commodityCategory)
+      ? commodityCategory
+      : "");
+  const categoryName =
+    (categoryId
+      ? categoryMaps?.categoryById.get(String(categoryId))
+      : undefined) ||
+    (nestedCommodityCategoryId
+      ? categoryMaps?.categoryById.get(String(nestedCommodityCategoryId))
+      : undefined) ||
+    (commodityId
+      ? categoryMaps?.commodityToCategory.get(String(commodityId))
+      : undefined) ||
+    directCategoryName ||
+    nestedCommodityCategoryName ||
+    "Uncategorized";
   return {
     // Keep the backend id verbatim (UUID string or number). Coercing with
     // `Number(id)` collapses every UUID to 0 → duplicate React keys and
     // every row opening the same detail.
     id,
-    category: (pickString(
-      obj,
-      "category",
-      "categoryName",
-      "category_name",
-      "commodity",
-    ) || "Rice") as Category,
+    category: categoryName as Category,
     item,
     buyer:
       pickString(
@@ -212,8 +273,6 @@ export interface CreateRequirementInput {
   categoryId: string;
   commodityId: string;
   quantityBags: number;
-  /** Target price per bag; null = open to offers. */
-  price?: number | null;
 }
 
 export const requirementsApi = {
@@ -231,7 +290,6 @@ export const requirementsApi = {
       commodityId: input.commodityId,
       quantityBags: input.quantityBags,
     };
-    if (input.price != null) body["price"] = input.price;
     const raw = await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.create), {
       method: "POST",
       token,
@@ -258,7 +316,12 @@ export const requirementsApi = {
    */
   async list(
     token: string,
-    params?: { status?: string; limit?: number },
+    params?: {
+      status?: string;
+      limit?: number;
+      categoryById?: ReadonlyMap<string, string>;
+      commodityToCategory?: ReadonlyMap<string, string>;
+    },
   ): Promise<BuyerRequirement[]> {
     const raw = await apiFetch<unknown>(
       apiUrl(
@@ -270,8 +333,13 @@ export const requirementsApi = {
       { token },
     );
     const records = unwrapList(raw);
+    const categoryMaps = {
+      categoryById: params?.categoryById ?? new Map<string, string>(),
+      commodityToCategory:
+        params?.commodityToCategory ?? new Map<string, string>(),
+    };
     const requirements = records
-      .map(normalizeRequirement)
+      .map((record) => normalizeRequirement(record, categoryMaps))
       .filter(
         (requirement): requirement is BuyerRequirement => requirement !== null,
       );

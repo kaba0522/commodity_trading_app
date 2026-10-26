@@ -1,15 +1,11 @@
-import { CategoryChips } from "@/components/common/CategoryChips";
-import { ListingRow } from "@/components/common/ListingRow";
 import { ModeToggle } from "@/components/common/ModeToggle";
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
+import { bagsLabel } from "@/core/utils/format";
 import { useRequirementsBrowse } from "@/features/buyer/requirements/hooks/useRequirementsBrowse";
-import { resolveBackendRole } from "@/core/auth/roleStore";
-import { useAuth } from "@/features/auth/hooks/useAuth";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -24,20 +20,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /** Seller Browse (`isRequirements` in Seller App.html): buyer requirements, By Commodity / By Buyer. */
 export function RequirementsBrowseScreen() {
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
-  const role = resolveBackendRole(session?.user);
-  const isSeller = role === "seller";
   const { buyer: buyerParam } = useLocalSearchParams<{ buyer?: string }>();
   const {
-    categories,
     mode,
     setMode,
-    category,
-    setCategory,
     buyerSearch,
     setBuyerSearch,
     rows,
-    totalCount,
     buyerGroups,
     collapsed,
     toggleBuyer,
@@ -45,6 +34,15 @@ export function RequirementsBrowseScreen() {
     error,
     retry,
   } = useRequirementsBrowse();
+  const commodityGroups = useMemo(() => {
+    const groups = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const group = groups.get(row.category) ?? [];
+      group.push(row);
+      groups.set(row.category, group);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [rows]);
 
   // Deep-link from requirement detail ("View all requirements from X",
   // `buyerRequirements` screen in Seller App.html): switch to By Buyer + filter.
@@ -77,12 +75,9 @@ export function RequirementsBrowseScreen() {
         { paddingTop: insets.top + spacing.md },
       ]}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Buyer requirements</Text>
-        {isSeller ? null : <ProfileButton />}
-      </View>
+      <Text style={styles.title}>Buyer Requirements</Text>
       <Text style={styles.subtitle}>
-        {totalCount} buyer {totalCount === 1 ? "requirement" : "requirements"}
+        Buyers looking to buy — offer to sell to them directly.
       </Text>
       <ModeToggle
         first="By Commodity"
@@ -91,13 +86,7 @@ export function RequirementsBrowseScreen() {
         onChange={(v) => setMode(v === "first" ? "commodity" : "buyer")}
       />
 
-      {mode === "commodity" ? (
-        <CategoryChips
-          values={categories}
-          value={category}
-          onChange={setCategory}
-        />
-      ) : (
+      {mode === "buyer" && (
         <TextInput
           style={styles.search}
           placeholder="Search buyer name"
@@ -119,17 +108,39 @@ export function RequirementsBrowseScreen() {
         </View>
       ) : mode === "commodity" ? (
         <View style={styles.stack}>
-          {rows.map((row) => (
-            <ListingRow
-              key={row.id}
-              tag={row.category}
-              title={row.item}
-              subtitle={row.wantsText}
-              pill={row.paysText}
-              price={row.priceText}
-              priceCaption="target"
-              onPress={() => openRequirement(row)}
-            />
+          {commodityGroups.map(([groupCategory, groupRows]) => (
+            <View key={groupCategory} style={styles.group}>
+              <Text style={styles.groupTitle}>{groupCategory}</Text>
+              <View style={styles.requirementList}>
+                {groupRows.map((row, index) => (
+                  <Pressable
+                    key={row.id}
+                    style={[
+                      styles.requirementRow,
+                      index === groupRows.length - 1 && styles.lastRow,
+                    ]}
+                    onPress={() => openRequirement(row)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${row.item} requirement from ${row.buyer}, ${bagsLabel(row.bags)}`}
+                  >
+                    <View style={styles.itemBadge}>
+                      <Text style={styles.itemBadgeText} numberOfLines={2}>
+                        {row.item}
+                      </Text>
+                    </View>
+                    <View style={styles.requirementInfo}>
+                      <Text style={styles.buyerName} numberOfLines={1}>
+                        {row.buyer}
+                      </Text>
+                      <Text style={styles.requirementMeta}>
+                        {bagsLabel(row.bags)}
+                      </Text>
+                    </View>
+                    <Text style={styles.rowChevron}>›</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           ))}
           {rows.length === 0 ? (
             <Text style={styles.empty}>
@@ -149,26 +160,42 @@ export function RequirementsBrowseScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={bg.buyer}
                 >
-                  <Text style={styles.buyerName} numberOfLines={1}>
+                  <Text style={styles.buyerGroupName} numberOfLines={1}>
                     {bg.buyer}
                   </Text>
-                  <Text style={styles.chevron}>{isCollapsed ? "›" : "⌄"}</Text>
+                  <Text style={styles.buyerChevron}>{isCollapsed ? "›" : "⌄"}</Text>
                 </Pressable>
                 {isCollapsed
                   ? null
-                  : bg.rows.map((row) => (
-                      <View key={row.id} style={styles.rowIndent}>
-                        <ListingRow
-                          tag={row.category}
-                          title={row.item}
-                          subtitle={row.wantsText}
-                          pill={row.paysText}
-                          price={row.priceText}
-                          priceCaption="target"
+                  : <View style={styles.requirementList}>
+                      {bg.rows.map((row, index) => (
+                        <Pressable
+                          key={row.id}
+                          style={[
+                            styles.requirementRow,
+                            index === bg.rows.length - 1 && styles.lastRow,
+                          ]}
                           onPress={() => openRequirement(row)}
-                        />
-                      </View>
-                    ))}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${row.item}, ${row.category}, ${bagsLabel(row.bags)}`}
+                        >
+                          <View style={styles.itemBadge}>
+                            <Text style={styles.itemBadgeText} numberOfLines={2}>
+                              {row.item}
+                            </Text>
+                          </View>
+                          <View style={styles.requirementInfo}>
+                            <Text style={styles.buyerName} numberOfLines={1}>
+                              {row.category}
+                            </Text>
+                            <Text style={styles.requirementMeta}>
+                              {bagsLabel(row.bags)}
+                            </Text>
+                          </View>
+                          <Text style={styles.rowChevron}>›</Text>
+                        </Pressable>
+                      ))}
+                    </View>}
               </View>
             );
           })}
@@ -190,17 +217,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   title: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: "800",
     color: colors.text,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
   subtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.muted,
     marginTop: -spacing.sm,
   },
@@ -213,30 +235,87 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   stack: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   group: {
     gap: spacing.sm,
   },
-  rowIndent: {
-    paddingLeft: spacing.xs,
+  groupTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  requirementList: {
+    overflow: "hidden",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+  },
+  requirementRow: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+  itemBadge: {
+    alignSelf: "stretch",
+    width: 72,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.primaryTint,
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+  },
+  itemBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    color: colors.primaryDark,
+  },
+  requirementInfo: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: spacing.md,
+    gap: 3,
+  },
+  buyerName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  requirementMeta: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  rowChevron: {
+    paddingHorizontal: spacing.md,
+    fontSize: 20,
+    color: colors.muted,
   },
   buyerHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  buyerName: {
+  buyerGroupName: {
     flex: 1,
     fontSize: 14,
     fontWeight: "700",
-    color: colors.primaryDark,
+    color: colors.text,
   },
-  chevron: {
+  buyerChevron: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.primaryDark,

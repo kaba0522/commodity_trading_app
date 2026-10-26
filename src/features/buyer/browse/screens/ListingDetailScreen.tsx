@@ -1,4 +1,3 @@
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
@@ -10,6 +9,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,10 +17,21 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Firm defaults ported from Buyer App.html (static until backend serves them). */
-const FIRM_PAYMENT_DEFAULT = "10-15 days";
 const FIRM_TERMS =
   "Goods must be outward within two days of order confirmation. Program received only before 5:00 PM. No tempo loading after 10 PM. Prices are subject to market conditions.";
+
+function priceExpiryLabel(value: string | null | undefined): string {
+  if (!value) return "Expiry unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Expiry unavailable";
+  return `Valid until ${date.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  })} IST`;
+}
 
 /**
  * Buyer listing detail (Buyer App.html detail screen): tapped from Browse —
@@ -37,6 +48,10 @@ export function ListingDetailScreen() {
     weight?: string;
     seller?: string;
     price?: string;
+    bags?: string;
+    paymentTerms?: string;
+    priceValidUntil?: string;
+    sellerListingCount?: string;
   }>();
   const { listing, isLoading, error, retry } = useListingDetail({
     id: typeof params.id === "string" ? params.id : undefined,
@@ -46,6 +61,9 @@ export function ListingDetailScreen() {
     weight: params.weight,
     seller: params.seller,
     price: params.price,
+    bags: params.bags,
+    paymentTerms: params.paymentTerms,
+    priceValidUntil: params.priceValidUntil,
   });
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -57,9 +75,9 @@ export function ListingDetailScreen() {
     });
   }
 
-  function pendingTrade(action: string) {
+  function pendingTrade() {
     setNotice(
-      `${action} arrives with the backend trade API — nothing is booked yet.`,
+      "Buying is not available yet because the trade service is not connected.",
     );
   }
 
@@ -70,10 +88,7 @@ export function ListingDetailScreen() {
         { paddingTop: insets.top + spacing.md },
       ]}
     >
-      <View style={styles.topRow}>
-        <BackButton accessibilityLabel="Back to browse" fallback="/browse" />
-        <ProfileButton />
-      </View>
+      <BackButton accessibilityLabel="Back to browse" fallback="/browse" />
 
       {isLoading && !listing ? (
         <View style={styles.center}>
@@ -110,24 +125,76 @@ export function ListingDetailScreen() {
             <Text style={styles.kicker}>Price per bag</Text>
             <Text style={styles.price}>{priceLabel(listing.price)}</Text>
             <View style={styles.validTag}>
-              <Text style={styles.validTagText}>Valid until 2:00 AM</Text>
+              <Text style={styles.validTagText}>
+                {priceExpiryLabel(listing.priceValidUntil)}
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={styles.sellerCard}
+            onPress={viewAllFromSeller}
+            accessibilityRole="button"
+            accessibilityLabel={`View listings from ${listing.seller}`}
+          >
+            <View>
+              <Text style={styles.sellerName}>{listing.seller}</Text>
+              <Text style={styles.muted}>
+                {params.sellerListingCount
+                  ? `${params.sellerListingCount} listing${
+                      params.sellerListingCount === "1" ? "" : "s"
+                    }`
+                  : "View seller listings"}
+              </Text>
+            </View>
+            <Text style={styles.sellerChevron}>›</Text>
+          </Pressable>
+
+          <View style={styles.specRow}>
+            <View style={[styles.card, styles.specCard]}>
+              <Text style={styles.kicker}>Quantity</Text>
+              <Text style={styles.body}>
+                {listing.bags ? `${listing.bags} bags` : "— bags"}
+              </Text>
+            </View>
+            <View style={[styles.card, styles.specCard]}>
+              <Text style={styles.kicker}>Weight / bag</Text>
+              <Text style={styles.body}>{listing.weight || "Not provided"}</Text>
             </View>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.kicker}>Payment terms</Text>
-            <Text style={styles.body}>{FIRM_PAYMENT_DEFAULT}</Text>
+            <Text style={styles.body}>
+              {listing.paymentTerms !== null &&
+              listing.paymentTerms !== undefined
+                ? `${listing.paymentTerms} days`
+                : "Terms on request"}
+            </Text>
           </View>
 
           <View style={styles.actions}>
             <View style={styles.actionFlex}>
               <Button
                 title="Make an offer"
-                onPress={() => pendingTrade("Making an offer")}
+                onPress={() =>
+                  router.push({
+                    pathname: "/browse/negotiate",
+                    params: {
+                      id: String(listing.id),
+                      category: listing.category,
+                      item: listing.item,
+                      seller: listing.seller,
+                      price: String(listing.price),
+                      weight: listing.weight,
+                      bags: String(listing.bags ?? ""),
+                    },
+                  })
+                }
               />
             </View>
             <View style={styles.actionFlex}>
-              <Button title="Buy" onPress={() => pendingTrade("Buying")} />
+              <Button title="Buy" onPress={pendingTrade} />
             </View>
           </View>
           {notice ? <FormStatus kind="info" message={notice} /> : null}
@@ -137,11 +204,6 @@ export function ListingDetailScreen() {
             <Text style={styles.body}>{FIRM_TERMS}</Text>
           </View>
 
-          <Button
-            title={`View all listings from ${listing.seller}`}
-            variant="secondary"
-            onPress={viewAllFromSeller}
-          />
         </>
       ) : null}
     </ScrollView>
@@ -156,10 +218,31 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: colors.background,
   },
-  topRow: {
+  sellerCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  sellerName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  sellerChevron: {
+    fontSize: 24,
+    color: colors.muted,
+  },
+  specRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  specCard: {
+    flex: 1,
   },
   tagRow: {
     flexDirection: "row",

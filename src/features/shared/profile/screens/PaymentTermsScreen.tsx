@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
+import { resolveBackendRole } from "@/core/auth/roleStore";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
@@ -19,6 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  */
 export function PaymentTermsScreen() {
   const { session } = useAuth();
+  const role = resolveBackendRole(session?.user);
+  const isSeller = role === "seller";
   const insets = useSafeAreaInsets();
   const { profile, save, isSaving, saveError, saved } = useMyProfile();
   const [days, setDays] = useState("");
@@ -41,6 +44,10 @@ export function PaymentTermsScreen() {
   async function handleSave() {
     const trimmed = days.trim();
     if (trimmed === "") {
+      if (isSeller) {
+        setLocalError("Sellers must keep default payment terms set.");
+        return;
+      }
       // Clears the default server-side (per-listing terms still apply).
       setLocalError(null);
       await save({ defaultPaymentTerms: null });
@@ -74,6 +81,7 @@ export function PaymentTermsScreen() {
           <Text style={styles.helper}>
             Your default payment terms in days across listings. Override per
             listing when needed.
+            {isSeller ? " Sellers must keep a default set." : ""}
           </Text>
           <TextInput
             style={styles.input}
@@ -82,7 +90,7 @@ export function PaymentTermsScreen() {
               setDays(v);
               setLocalError(null);
             }}
-            placeholder="e.g. 15"
+            placeholder={isSeller ? "Required for sellers, e.g. 15" : "e.g. 15"}
             placeholderTextColor={colors.muted}
             keyboardType="number-pad"
             accessibilityLabel="Default payment terms in days"

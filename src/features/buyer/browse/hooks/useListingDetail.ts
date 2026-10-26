@@ -12,12 +12,17 @@ export interface BrowseDetailSeed {
   weight?: string;
   seller?: string;
   price?: string;
+  bags?: string;
+  paymentTerms?: string;
+  priceValidUntil?: string;
 }
 
 /** Instant render from the tapped browse row (the list already has the data). */
 function seedFromParams(seed: BrowseDetailSeed): Listing | null {
   if (!seed.item || !seed.seller) return null;
   const price = Number(seed.price ?? 0);
+  const bags = Number(seed.bags ?? "");
+  const paymentTerms = Number(seed.paymentTerms ?? "");
   return {
     id: Number(seed.id ?? 0) || (seed.id ?? 0),
     category: (seed.category || "Rice") as Listing["category"],
@@ -26,6 +31,11 @@ function seedFromParams(seed: BrowseDetailSeed): Listing | null {
     weight: seed.weight || "",
     seller: seed.seller,
     price: Number.isFinite(price) ? price : 0,
+    ...(Number.isInteger(bags) && bags > 0 ? { bags } : {}),
+    ...(Number.isInteger(paymentTerms) && paymentTerms >= 0
+      ? { paymentTerms }
+      : {}),
+    priceValidUntil: seed.priceValidUntil || null,
   } as Listing;
 }
 

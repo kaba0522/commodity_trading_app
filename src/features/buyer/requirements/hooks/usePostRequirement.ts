@@ -5,13 +5,12 @@ import { postRequirementSchema } from "@/features/seller/listings/schemas/listin
 import { catalogApi, type CatalogCategory, type CatalogCommodity } from "@/features/shared/catalog/api/catalogApi";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-export type PostRequirementField = "categoryId" | "commodityId" | "quantity" | "price";
+export type PostRequirementField = "categoryId" | "commodityId" | "quantity";
 
 export interface PostRequirementValues {
   categoryId: string;
   commodityId: string;
   quantity: string;
-  price: string;
 }
 
 export type PostRequirementFieldErrors = Partial<Record<PostRequirementField, string>>;
@@ -20,12 +19,12 @@ const INITIAL_VALUES: PostRequirementValues = {
   categoryId: "",
   commodityId: "",
   quantity: "",
-  price: "",
 };
 
 /**
  * Buyer post-requirement form: category → commodity (live UUIDs), quantity
- * (required), target price (optional), then POSTs `side: "BUY"`.
+ * (required), then POSTs `side: "BUY"`. The backend does not allow a price
+ * on BUY requirements; pricing is agreed during negotiation.
  */
 export function usePostRequirement() {
   const { runWithAuth } = useAuth();
@@ -154,7 +153,6 @@ export function usePostRequirement() {
       categoryId: values.categoryId,
       commodityId: values.commodityId,
       quantity: values.quantity,
-      price: values.price,
     });
     if (!parsed.success) {
       const nextErrors: PostRequirementFieldErrors = {};
@@ -173,7 +171,6 @@ export function usePostRequirement() {
             categoryId: values.categoryId.trim(),
             commodityId: values.commodityId.trim(),
             quantityBags: Number(values.quantity.trim()),
-            price: values.price.trim() ? Number(values.price.trim()) : null,
           },
           token,
         ),

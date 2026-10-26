@@ -16,12 +16,13 @@ export interface BarItem {
   Icon: (props: { color: string }) => React.ReactNode;
 }
 
-/** Buyer bar: prototype tabs (Browse, Trades, Post req, Freight). Browse is first + default. */
+/** Buyer bar: prototype tabs (Rates, Trades, Post Needs, Freight, Profile). */
 export const BUYER_BAR: BarItem[] = [
-  { target: "browse", label: "Browse", Icon: BrowseIcon },
+  { target: "browse", label: "Rates", Icon: BrowseIcon },
   { target: "trades", label: "Trades", Icon: TradesIcon },
-  { target: "post-req", label: "Post req", Icon: PostReqIcon },
+  { target: "post-req", label: "Post Needs", Icon: PostReqIcon },
   { target: "freight", label: "Freight", Icon: FreightIcon },
+  { target: "profile", label: "Profile", Icon: ProfileIcon },
 ];
 
 /**
@@ -45,11 +46,11 @@ interface AppTabBarProps {
 
 /**
  * Shared bottom navbar (ported from both prototypes — same bar, one
- * role-specific slot: Post req for buyers, Add listing for sellers).
+ * role-specific slot: Post Needs for buyers, Add listing for sellers).
  */
 export function AppTabBar({ items, active, onPress }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
-  // Five-slot seller bar needs a slightly smaller label to stay on one line.
+  // Five-slot role bars use smaller labels to stay on one line.
   const compact = items.length > 4;
 
   return (

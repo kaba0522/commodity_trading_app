@@ -14,8 +14,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Firm defaults ported from Seller App.html (static until backend serves them). */
-const FIRM_PAYMENT_DEFAULT = "10-15 days";
 const FIRM_TERMS =
   "Goods must be outward within two days of order confirmation. Program received only before 5:00 PM. No tempo loading after 10 PM. Prices are subject to market conditions.";
 const CONTACTS = [
@@ -24,9 +22,23 @@ const CONTACTS = [
   { name: "Naveen", phone: "89502 78270" },
 ];
 
+function priceExpiryLabel(value: string | null | undefined): string {
+  if (!value) return "No active price expiry";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Expiry unavailable";
+  const formatted = date.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+  return `Valid until ${formatted} IST`;
+}
+
 /**
  * Seller listing detail (`isDetail` in Seller App.html): price + validity
- * from `GET /listings/:id`; photos/video, payment terms, firm terms and
+ * and payment terms from `GET /listings/:id`; photos/video, firm terms and
  * contacts are static until the backend serves them.
  */
 export function ListingDetailScreen() {
@@ -78,7 +90,9 @@ export function ListingDetailScreen() {
               {listing.price > 0 ? priceLabel(listing.price) : "N/A"}
             </Text>
             <View style={styles.validTag}>
-              <Text style={styles.validTagText}>Valid until 2:00 AM</Text>
+              <Text style={styles.validTagText}>
+                {priceExpiryLabel(listing.priceValidUntil)}
+              </Text>
             </View>
           </View>
 
@@ -100,7 +114,11 @@ export function ListingDetailScreen() {
 
           <View style={styles.card}>
             <Text style={styles.kicker}>Payment terms</Text>
-            <Text style={styles.body}>{FIRM_PAYMENT_DEFAULT}</Text>
+            <Text style={styles.body}>
+              {listing.paymentTerms !== null && listing.paymentTerms !== undefined
+                ? `${listing.paymentTerms} days`
+                : "Not provided"}
+            </Text>
           </View>
 
           <View style={styles.card}>

@@ -36,18 +36,16 @@ export function toRequirementRow(
 
 /**
  * Seller buyer-requirements (Seller App.html `isRequirements`):
- * By Commodity rows with category chips, By Buyer sections with name search.
+ * By Commodity rows grouped under every category, By Buyer sections with name search.
  * Live backend only — requirement-flagged entries of GET `/listings` plus
  * categories from GET `/commodity-categories` (derived fallback).
  */
 export function useRequirementsBrowse() {
   const { runWithAuth } = useAuth();
   const [mode, setMode] = useState<ReqMode>("commodity");
-  const [category, setCategory] = useState<string>("All");
   const [buyerSearch, setBuyerSearch] = useState("");
   const [collapsed, setCollapsed] = useState<readonly string[]>([]);
   const [source, setSource] = useState<BuyerRequirement[]>([]);
-  const [categories, setCategories] = useState<readonly string[]>(["All"]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,27 +53,31 @@ export function useRequirementsBrowse() {
     setIsLoading(true);
     setError(null);
     try {
-      let resolvedCategories: string[] = [];
+      const categoryById = new Map<string, string>();
+      const commodityToCategory = new Map<string, string>();
       try {
-        const fetched = await runWithAuth((token) =>
-          catalogApi.getCommodityCategories(token),
+        const [catalogCategories, commodities] = await runWithAuth((token) =>
+          Promise.all([
+            catalogApi.getCommodityCategories(token),
+            catalogApi.getCommodities(token),
+          ]),
         );
-        resolvedCategories = fetched.map((c) => c.name);
-        if (resolvedCategories.length > 0) {
-          setCategories(["All", ...resolvedCategories]);
+        for (const catalogCategory of catalogCategories) {
+          categoryById.set(catalogCategory.id, catalogCategory.name);
+        }
+        for (const commodity of commodities) {
+          const categoryName =
+            categoryById.get(commodity.categoryId) || commodity.categoryName;
+          if (categoryName) commodityToCategory.set(commodity.id, categoryName);
         }
       } catch {
-        resolvedCategories = [];
+        // Category names embedded in buyer listings remain usable without catalogs.
       }
 
-      const fetched = await runWithAuth((token) => requirementsApi.list(token));
+      const fetched = await runWithAuth((token) =>
+        requirementsApi.list(token, { categoryById, commodityToCategory }),
+      );
       setSource(fetched);
-      if (resolvedCategories.length === 0) {
-        const fallbackCategories = [
-          ...new Set(fetched.map((r) => r.category).filter((c) => c)),
-        ].sort();
-        setCategories(["All", ...fallbackCategories]);
-      }
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load buyer requirements"));
     } finally {
@@ -94,12 +96,8 @@ export function useRequirementsBrowse() {
   }, [load]);
 
   const rows = useMemo(
-    () =>
-      (category === "All"
-        ? source
-        : source.filter((r) => r.category === category)
-      ).map((r) => toRequirementRow(r, false)),
-    [category, source],
+    () => source.map((r) => toRequirementRow(r, false)),
+    [source],
   );
 
   const buyerGroups = useMemo(() => {
@@ -122,11 +120,8 @@ export function useRequirementsBrowse() {
   }
 
   return {
-    categories,
     mode,
     setMode,
-    category,
-    setCategory,
     buyerSearch,
     setBuyerSearch,
     rows,

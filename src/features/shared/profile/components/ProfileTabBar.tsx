@@ -14,6 +14,8 @@ function goTab(target: string) {
       return router.replace("/post-req");
     case "freight":
       return router.replace("/freight");
+    case "profile":
+      return router.replace("/profile");
     case "requirements":
       return router.replace("/requirements");
     case "orders":
@@ -41,7 +43,7 @@ export function ProfileTabBar() {
   return (
     <AppTabBar
       items={barItems}
-      active={role === "seller" ? "seller-profile" : null}
+      active={role === "seller" ? "seller-profile" : "profile"}
       onPress={goTab}
     />
   );
