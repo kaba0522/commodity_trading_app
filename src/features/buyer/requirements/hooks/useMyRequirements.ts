@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { requirementsApi } from "@/features/buyer/requirements/api/requirementsApi";
+import { catalogApi } from "@/features/shared/catalog/api/catalogApi";
 import type { BuyerRequirement } from "@/types/domain";
 
 /**
@@ -23,10 +24,37 @@ export function useMyRequirements() {
     setIsLoading(true);
     setError(null);
     try {
+      const categoryById = new Map<string, string>();
+      const commodityToCategory = new Map<string, string>();
+      try {
+        const [categories, commodities] = await runWithAuth((token) =>
+          Promise.all([
+            catalogApi.getCommodityCategories(token),
+            catalogApi.getCommodities(token),
+          ]),
+        );
+        for (const category of categories) {
+          categoryById.set(category.id, category.name);
+        }
+        for (const commodity of commodities) {
+          const categoryName =
+            categoryById.get(commodity.categoryId) || commodity.categoryName;
+          if (categoryName) {
+            commodityToCategory.set(commodity.id, categoryName);
+          }
+        }
+      } catch {
+        // Listings can still supply category names directly when the catalog is unavailable.
+      }
+
       // runWithAuth refreshes the 15m access token on 401 and retries once.
       setItems(
         await runWithAuth((token) =>
-          requirementsApi.list(token, { status: "active,price_expired" }),
+          requirementsApi.list(token, {
+            status: "active,price_expired",
+            categoryById,
+            commodityToCategory,
+          }),
         ),
       );
     } catch (e) {

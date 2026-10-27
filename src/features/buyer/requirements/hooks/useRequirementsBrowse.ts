@@ -46,6 +46,7 @@ export function useRequirementsBrowse() {
   const [buyerSearch, setBuyerSearch] = useState("");
   const [collapsed, setCollapsed] = useState<readonly string[]>([]);
   const [source, setSource] = useState<BuyerRequirement[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +56,7 @@ export function useRequirementsBrowse() {
     try {
       const categoryById = new Map<string, string>();
       const commodityToCategory = new Map<string, string>();
+      let catalogCategoryNames: string[] = [];
       try {
         const [catalogCategories, commodities] = await runWithAuth((token) =>
           Promise.all([
@@ -62,6 +64,7 @@ export function useRequirementsBrowse() {
             catalogApi.getCommodities(token),
           ]),
         );
+        catalogCategoryNames = catalogCategories.map((category) => category.name);
         for (const catalogCategory of catalogCategories) {
           categoryById.set(catalogCategory.id, catalogCategory.name);
         }
@@ -78,6 +81,12 @@ export function useRequirementsBrowse() {
         requirementsApi.list(token, { categoryById, commodityToCategory }),
       );
       setSource(fetched);
+      setCategories([
+        ...new Set([
+          ...catalogCategoryNames,
+          ...fetched.map((requirement) => requirement.category),
+        ]),
+      ]);
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load buyer requirements"));
     } finally {
@@ -125,6 +134,7 @@ export function useRequirementsBrowse() {
     buyerSearch,
     setBuyerSearch,
     rows,
+    categories,
     totalCount: source.length,
     buyerGroups,
     collapsed,

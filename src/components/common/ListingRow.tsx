@@ -1,3 +1,4 @@
+import { ChevronIcon } from "@/components/common/ChevronIcon";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -65,6 +66,11 @@ export function ListingRow({ title, subtitle, price, tag, badge, qualityBadge, p
           </View>
         ) : null}
       </View>
+      {onPress ? (
+        <View style={styles.chevronContainer}>
+          <ChevronIcon />
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -178,5 +184,11 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "700",
     color: colors.muted,
+  },
+  chevronContainer: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.xs,
   },
 });

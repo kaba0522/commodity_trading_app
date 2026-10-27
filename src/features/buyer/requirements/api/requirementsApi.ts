@@ -1,6 +1,6 @@
 import { ApiError, apiFetch } from "@/core/api/client";
 import { LISTINGS_ENDPOINTS, apiUrl } from "@/core/api/endpoints";
-import type { BuyerRequirement, Category } from "@/types/domain";
+import type { BuyerRequirement, Category, ListingStatus } from "@/types/domain";
 
 /** Seller browse source (Seller App.html `isRequirements`). */
 
@@ -195,6 +195,16 @@ function normalizeRequirement(
     directCategoryName ||
     nestedCommodityCategoryName ||
     "Uncategorized";
+  const rawStatus = pickString(obj, "status").toLowerCase();
+  const status: ListingStatus | undefined =
+    rawStatus === "active" ||
+    rawStatus === "price_expired" ||
+    rawStatus === "na" ||
+    rawStatus === "withdrawn" ||
+    rawStatus === "traded" ||
+    rawStatus === "sold_out"
+      ? rawStatus
+      : undefined;
   return {
     // Keep the backend id verbatim (UUID string or number). Coercing with
     // `Number(id)` collapses every UUID to 0 → duplicate React keys and
@@ -234,7 +244,7 @@ function normalizeRequirement(
       "payTerms",
       "paymentTermsText",
       "payment_terms",
-    ),
+    ) || String(pickNumber(obj, "paymentTerms", "payment_terms") ?? ""),
     targetPrice:
       pickNumber(
         obj,
@@ -265,20 +275,37 @@ function normalizeRequirement(
         "qtyBags",
         "qty",
       ) ?? 0,
+    quality: pickString(obj, "quality", "qualityGrade", "quality_grade"),
+    weightKg: pickNumber(obj, "weightKg", "weight_kg", "weight") ?? undefined,
+    location: pickString(
+      obj,
+      "location",
+      "deliveryLocation",
+      "delivery_location",
+    ),
+    notes: pickString(obj, "notes", "note", "description"),
+    status,
+    createdAt: pickString(obj, "createdAt", "created_at", "postedAt", "posted_at"),
   };
 }
 
-/** Buyer post-requirement input — mirrors backend `validateBuyRequirementInput`. */
+/** Buyer post-requirement input — price is intentionally excluded for BUY. */
 export interface CreateRequirementInput {
   categoryId: string;
   commodityId: string;
   quantityBags: number;
+  quality?: string | null;
+  weightKg?: number | null;
+  paymentTerms?: number | null;
+  location?: string | null;
+  notes?: string | null;
 }
 
 export const requirementsApi = {
   /**
    * POST `/listings` with `side: "BUY"` — post a buyer requirement.
-   * `itemName` is derived server-side from the commodity.
+   * `itemName` is derived server-side from the commodity; optional details
+   * are sent when provided. BUY price is always excluded.
    */
   async create(
     input: CreateRequirementInput,
@@ -290,6 +317,11 @@ export const requirementsApi = {
       commodityId: input.commodityId,
       quantityBags: input.quantityBags,
     };
+    if (input.quality) body["quality"] = input.quality;
+    if (input.weightKg != null) body["weightKg"] = input.weightKg;
+    if (input.paymentTerms != null) body["paymentTerms"] = input.paymentTerms;
+    if (input.location) body["location"] = input.location;
+    if (input.notes) body["notes"] = input.notes;
     const raw = await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.create), {
       method: "POST",
       token,
@@ -378,11 +410,22 @@ export const requirementsApi = {
    * GET `/listings/:id` — single buyer-requirement detail
    * (backend: `router.get('/:id', listingController.getById)`).
    */
-  async getById(id: string, token: string): Promise<BuyerRequirement> {
+  async getById(
+    id: string,
+    token: string,
+    categoryMaps?: {
+      categoryById?: ReadonlyMap<string, string>;
+      commodityToCategory?: ReadonlyMap<string, string>;
+    },
+  ): Promise<BuyerRequirement> {
     const raw = await apiFetch<unknown>(apiUrl(LISTINGS_ENDPOINTS.byId(id)), {
       token,
     });
-    const requirement = normalizeRequirement(unwrapOne(raw));
+    const requirement = normalizeRequirement(unwrapOne(raw), {
+      categoryById: categoryMaps?.categoryById ?? new Map<string, string>(),
+      commodityToCategory:
+        categoryMaps?.commodityToCategory ?? new Map<string, string>(),
+    });
     if (!requirement) {
       throw new ApiError(
         502,

@@ -1,5 +1,5 @@
-import { TabPlaceholder } from "@/components/common/TabPlaceholder";
+import { FreightScreen } from "@/features/shared/freight/screens/FreightScreen";
 
 export default function FreightRoute() {
-  return <TabPlaceholder title="Freight" />;
+  return <FreightScreen />;
 }

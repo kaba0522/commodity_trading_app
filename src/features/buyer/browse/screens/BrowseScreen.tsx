@@ -1,9 +1,11 @@
 import { CategoryChips } from "@/components/common/CategoryChips";
+import { ChevronIcon } from "@/components/common/ChevronIcon";
+import { ExpandableGroupCard } from "@/components/common/ExpandableGroupCard";
 import { ListingRow } from "@/components/common/ListingRow";
 import { ModeToggle } from "@/components/common/ModeToggle";
 import { Button } from "@/components/ui/Button";
-import { useBrowse } from "@/features/buyer/browse/hooks/useBrowse";
 import type { BrowseRow } from "@/features/buyer/browse/hooks/useBrowse";
+import { useBrowse } from "@/features/buyer/browse/hooks/useBrowse";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router, useLocalSearchParams } from "expo-router";
@@ -81,7 +83,7 @@ export function BrowseScreen() {
     >
       <View style={styles.header}>
         <View style={styles.titleBlock}>
-          <Text style={styles.eyebrow}>Buyer view</Text>
+          {/* <Text style={styles.eyebrow}>Buyer view</Text> */}
           <Text style={styles.title}>Today&apos;s market</Text>
         </View>
       </View>
@@ -133,7 +135,7 @@ export function BrowseScreen() {
                   key={row.id}
                   qualityBadge={row.qualityText}
                   title={row.seller}
-                  subtitle={`${row.qualityText} · ${row.weight}`}
+                  subtitle={` ${row.weight}`}
                   price={row.priceText}
                   onPress={() => openListing(row)}
                 />
@@ -151,43 +153,48 @@ export function BrowseScreen() {
           {sellerGroups.map((sg) => {
             const isCollapsed = collapsed.includes(sg.seller);
             return (
-              <View key={sg.seller} style={styles.group}>
-                <Pressable
-                  style={styles.sellerHeader}
-                  onPress={() => toggleSeller(sg.seller)}
-                  accessibilityRole="button"
-                  accessibilityLabel={sg.seller}
-                >
-                  <Text style={styles.sellerName} numberOfLines={1}>
-                    {sg.seller}
-                  </Text>
-                  <Text style={styles.chevron}>{isCollapsed ? "›" : "⌄"}</Text>
-                </Pressable>
-                {isCollapsed
-                  ? null
-                  : sg.itemGroups.map((group) => (
-                      <View key={group.key} style={styles.subGroup}>
-                        <View style={styles.groupHeader}>
-                          <Text style={styles.groupTitle}>
-                            {group.category} · {group.item}
+              <ExpandableGroupCard
+                key={sg.seller}
+                title={sg.seller}
+                expanded={!isCollapsed}
+                onToggle={() => toggleSeller(sg.seller)}
+              >
+                {sg.itemGroups.flatMap((group) =>
+                  group.rows.map((row, index) => {
+                    const isLast =
+                      group === sg.itemGroups[sg.itemGroups.length - 1] &&
+                      index === group.rows.length - 1;
+                    return (
+                      <Pressable
+                        key={row.id}
+                        style={[
+                          styles.sellerListingRow,
+                          !isLast && styles.sellerListingRowBorder,
+                        ]}
+                        onPress={() => openListing(row)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${row.category} ${row.item}, ${row.priceText} per bag`}
+                      >
+                        <View style={styles.sellerListingInfo}>
+                          <Text
+                            style={styles.sellerListingTitle}
+                            numberOfLines={1}
+                          >
+                            {row.category} · {row.item} · {row.qualityText}
                           </Text>
-                          <Text style={styles.groupMeta}>
-                            {group.weight} bag
+                          <Text style={styles.sellerListingMeta}>
+                            {row.bags != null ? `${row.bags} bags` : row.weight}
                           </Text>
                         </View>
-                        {group.rows.map((row) => (
-                          <ListingRow
-                            key={row.id}
-                            qualityBadge={row.qualityText}
-                            title={row.item}
-                            subtitle={`${row.qualityText} · ${row.weight}`}
-                            price={row.priceText}
-                            onPress={() => openListing(row)}
-                          />
-                        ))}
-                      </View>
-                    ))}
-              </View>
+                        <Text style={styles.sellerListingPrice}>
+                          {row.priceText}
+                        </Text>
+                        <ChevronIcon />
+                      </Pressable>
+                    );
+                  }),
+                )}
+              </ExpandableGroupCard>
             );
           })}
           {sellerGroups.length === 0 ? (
@@ -259,23 +266,40 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.muted,
   },
-  sellerHeader: {
+  sellerListingRow: {
+    minHeight: 62,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.primaryTint,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.card,
   },
-  sellerName: {
+  sellerListingRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  sellerListingInfo: {
     flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  sellerListingTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: colors.primaryDark,
+    color: colors.text,
   },
-  chevron: {
-    fontSize: 16,
+  sellerListingMeta: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  sellerListingPrice: {
+    overflow: "hidden",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: colors.primaryTint,
+    fontSize: 14,
     fontWeight: "700",
     color: colors.primaryDark,
   },

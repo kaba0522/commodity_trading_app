@@ -32,6 +32,10 @@ export function NegotiateScreen() {
     bags?: string;
     targetPrice?: string;
     paymentTerms?: string;
+    quality?: string;
+    weightKg?: string;
+    location?: string;
+    notes?: string;
   }>();
   const {
     requirement,
@@ -52,6 +56,10 @@ export function NegotiateScreen() {
     bags: params.bags,
     targetPrice: params.targetPrice,
     paymentTerms: params.paymentTerms,
+    quality: params.quality,
+    weightKg: params.weightKg,
+    location: params.location,
+    notes: params.notes,
   });
 
   function viewAllFromBuyer() {
@@ -106,6 +114,18 @@ export function NegotiateScreen() {
                 {requirement.paymentTerms || "Terms on request"}
               </Text>
             </View>
+            {requirement.quality ? (
+              <Text style={styles.muted}>Quality grade: {requirement.quality}</Text>
+            ) : null}
+            {requirement.weightKg != null ? (
+              <Text style={styles.muted}>Weight per bag: {requirement.weightKg} kg</Text>
+            ) : null}
+            {requirement.location ? (
+              <Text style={styles.muted}>Delivery location: {requirement.location}</Text>
+            ) : null}
+            {requirement.notes ? (
+              <Text style={styles.muted}>Notes: {requirement.notes}</Text>
+            ) : null}
             <Pressable
               onPress={viewAllFromBuyer}
               style={styles.buyerBox}

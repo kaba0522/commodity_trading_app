@@ -77,6 +77,12 @@ export interface BuyerRequirement {
   paymentTerms: string;
   targetPrice: number;
   bags: number;
+  quality?: string;
+  weightKg?: number;
+  location?: string;
+  notes?: string;
+  status?: ListingStatus;
+  createdAt?: string;
 }
 
 /** Completed/past trade. */

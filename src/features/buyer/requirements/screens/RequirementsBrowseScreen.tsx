@@ -1,3 +1,6 @@
+import { CategoryChips } from "@/components/common/CategoryChips";
+import { ChevronIcon } from "@/components/common/ChevronIcon";
+import { ExpandableGroupCard } from "@/components/common/ExpandableGroupCard";
 import { ModeToggle } from "@/components/common/ModeToggle";
 import { Button } from "@/components/ui/Button";
 import { bagsLabel } from "@/core/utils/format";
@@ -5,7 +8,7 @@ import { useRequirementsBrowse } from "@/features/buyer/requirements/hooks/useRe
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -27,6 +30,7 @@ export function RequirementsBrowseScreen() {
     buyerSearch,
     setBuyerSearch,
     rows,
+    categories,
     buyerGroups,
     collapsed,
     toggleBuyer,
@@ -34,15 +38,24 @@ export function RequirementsBrowseScreen() {
     error,
     retry,
   } = useRequirementsBrowse();
+  const [category, setCategory] = useState("All");
+  const categoryValues = useMemo(() => ["All", ...categories], [categories]);
+  const filteredRows = useMemo(
+    () =>
+      category === "All"
+        ? rows
+        : rows.filter((row) => row.category === category),
+    [category, rows],
+  );
   const commodityGroups = useMemo(() => {
     const groups = new Map<string, typeof rows>();
-    for (const row of rows) {
+    for (const row of filteredRows) {
       const group = groups.get(row.category) ?? [];
       group.push(row);
       groups.set(row.category, group);
     }
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [rows]);
+  }, [filteredRows]);
 
   // Deep-link from requirement detail ("View all requirements from X",
   // `buyerRequirements` screen in Seller App.html): switch to By Buyer + filter.
@@ -64,6 +77,10 @@ export function RequirementsBrowseScreen() {
         bags: String(row.bags),
         targetPrice: String(row.targetPrice),
         paymentTerms: row.paymentTerms,
+        quality: row.quality ?? "",
+        weightKg: row.weightKg != null ? String(row.weightKg) : "",
+        location: row.location ?? "",
+        notes: row.notes ?? "",
       },
     });
   }
@@ -86,7 +103,13 @@ export function RequirementsBrowseScreen() {
         onChange={(v) => setMode(v === "first" ? "commodity" : "buyer")}
       />
 
-      {mode === "buyer" && (
+      {mode === "commodity" ? (
+        <CategoryChips
+          values={categoryValues}
+          value={category}
+          onChange={setCategory}
+        />
+      ) : (
         <TextInput
           style={styles.search}
           placeholder="Search buyer name"
@@ -136,13 +159,13 @@ export function RequirementsBrowseScreen() {
                         {bagsLabel(row.bags)}
                       </Text>
                     </View>
-                    <Text style={styles.rowChevron}>›</Text>
+                    <ChevronIcon />
                   </Pressable>
                 ))}
               </View>
             </View>
           ))}
-          {rows.length === 0 ? (
+          {filteredRows.length === 0 ? (
             <Text style={styles.empty}>
               No buyer requirements in this category yet.
             </Text>
@@ -153,50 +176,36 @@ export function RequirementsBrowseScreen() {
           {buyerGroups.map((bg) => {
             const isCollapsed = collapsed.includes(bg.buyer);
             return (
-              <View key={bg.buyer} style={styles.group}>
-                <Pressable
-                  style={styles.buyerHeader}
-                  onPress={() => toggleBuyer(bg.buyer)}
-                  accessibilityRole="button"
-                  accessibilityLabel={bg.buyer}
-                >
-                  <Text style={styles.buyerGroupName} numberOfLines={1}>
-                    {bg.buyer}
-                  </Text>
-                  <Text style={styles.buyerChevron}>{isCollapsed ? "›" : "⌄"}</Text>
-                </Pressable>
-                {isCollapsed
-                  ? null
-                  : <View style={styles.requirementList}>
-                      {bg.rows.map((row, index) => (
-                        <Pressable
-                          key={row.id}
-                          style={[
-                            styles.requirementRow,
-                            index === bg.rows.length - 1 && styles.lastRow,
-                          ]}
-                          onPress={() => openRequirement(row)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${row.item}, ${row.category}, ${bagsLabel(row.bags)}`}
-                        >
-                          <View style={styles.itemBadge}>
-                            <Text style={styles.itemBadgeText} numberOfLines={2}>
-                              {row.item}
-                            </Text>
-                          </View>
-                          <View style={styles.requirementInfo}>
-                            <Text style={styles.buyerName} numberOfLines={1}>
-                              {row.category}
-                            </Text>
-                            <Text style={styles.requirementMeta}>
-                              {bagsLabel(row.bags)}
-                            </Text>
-                          </View>
-                          <Text style={styles.rowChevron}>›</Text>
-                        </Pressable>
-                      ))}
-                    </View>}
-              </View>
+              <ExpandableGroupCard
+                key={bg.buyer}
+                title={bg.buyer}
+                expanded={!isCollapsed}
+                onToggle={() => toggleBuyer(bg.buyer)}
+              >
+                {bg.rows.map((row, index) => (
+                  <Pressable
+                    key={row.id}
+                    style={[
+                      styles.buyerRequirementRow,
+                      index < bg.rows.length - 1 &&
+                        styles.buyerRequirementRowBorder,
+                    ]}
+                    onPress={() => openRequirement(row)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${row.category} ${row.item}, ${bagsLabel(row.bags)}`}
+                  >
+                    <View style={styles.buyerRequirementInfo}>
+                      <Text style={styles.buyerRequirementTitle} numberOfLines={1}>
+                        {row.category} · {row.item}
+                      </Text>
+                      <Text style={styles.buyerRequirementMeta}>
+                        {bagsLabel(row.bags)}
+                      </Text>
+                    </View>
+                    <ChevronIcon />
+                  </Pressable>
+                ))}
+              </ExpandableGroupCard>
             );
           })}
           {buyerGroups.length === 0 ? (
@@ -295,30 +304,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.muted,
   },
-  rowChevron: {
-    paddingHorizontal: spacing.md,
-    fontSize: 20,
-    color: colors.muted,
-  },
-  buyerHeader: {
+  buyerRequirementRow: {
+    minHeight: 62,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.card,
   },
-  buyerGroupName: {
+  buyerRequirementRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  buyerRequirementInfo: {
     flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  buyerRequirementTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
   },
-  buyerChevron: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.primaryDark,
+  buyerRequirementMeta: {
+    fontSize: 11,
+    color: colors.muted,
   },
   empty: {
     fontSize: 13,

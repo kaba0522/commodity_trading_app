@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { ChevronIcon } from "@/components/common/ChevronIcon";
 import { ConfirmSheet } from "@/components/common/ConfirmSheet";
-import { ProfileButton } from "@/components/common/ProfileButton";
 import { Button } from "@/components/ui/Button";
 import { useMyRequirements } from "@/features/buyer/requirements/hooks/useMyRequirements";
 import type { BuyerRequirement } from "@/types/domain";
@@ -12,9 +19,7 @@ import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
 
 /**
- * Buyer "My requirements" (the Post req tab root): the buyer's own posted
- * BUY requirements with a "Post requirement" button that opens the form —
- * the mirror of the seller's Today's-listings dashboard + add-listing form.
+ * Buyer's active posted requirements with links to their details and withdraw.
  */
 export function MyRequirementsScreen() {
   const insets = useSafeAreaInsets();
@@ -37,6 +42,12 @@ export function MyRequirementsScreen() {
         bags: String(req.bags),
         targetPrice: String(req.targetPrice),
         paymentTerms: req.paymentTerms,
+        quality: req.quality ?? "",
+        weightKg: req.weightKg != null ? String(req.weightKg) : "",
+        location: req.location ?? "",
+        notes: req.notes ?? "",
+        status: req.status ?? "",
+        createdAt: req.createdAt ?? "",
       },
     });
   }
@@ -44,110 +55,180 @@ export function MyRequirementsScreen() {
   async function handleSheetConfirm() {
     if (!pending || pendingBusy) return;
     const ok = await withdraw(pending.id);
-    // Stay open on failure so the error shows inside the sheet; the list
-    // behind also carries it once the sheet is dismissed.
     if (ok) setPending(null);
   }
 
   return (
     <>
-    <ScrollView
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + spacing.md },
-      ]}
-    >
-      <View style={styles.header}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>
-            My requirements
-          </Text>
-          <Text style={styles.subtitle}>
-            {count === 0 ? "Nothing posted yet" : `${count} posted`}
-          </Text>
-        </View>
-        <ProfileButton />
-      </View>
-
-      <Button title="Post requirement" onPress={openForm} />
-
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.centerText}>Loading your requirements…</Text>
-        </View>
-      ) : error && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Button title="Retry" variant="secondary" onPress={retry} />
-        </View>
-      ) : (
-        <View style={styles.list}>
-          {items.map((req) => {
-            const busy = withdrawingId === String(req.id);
-            return (
-              <Pressable
-                key={String(req.id)}
-                style={styles.row}
-                onPress={() => openDetail(req)}
-                accessibilityRole="button"
-                accessibilityLabel={`${req.item}, ${req.bags} bags`}
-              >
-                <View style={styles.rowMain}>
-                  <View style={styles.rowTag}>
-                    <Text style={styles.rowTagText}>{req.category}</Text>
-                  </View>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {req.item}
-                  </Text>
-                  <Text style={styles.rowSub} numberOfLines={1}>
-                    {req.bags} bags ·{" "}
-                    {req.targetPrice > 0
-                      ? `target Rs.${req.targetPrice.toLocaleString("en-IN")}`
-                      : "open to offers"}
-                  </Text>
-                </View>
-                <Pressable
-                  hitSlop={8}
-                  disabled={busy}
-                  onPress={() => setPending(req)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Withdraw ${req.item}`}
-                >
-                  <Text style={[styles.withdraw, busy ? styles.withdrawBusy : null]}>
-                    {busy ? "…" : "Withdraw"}
-                  </Text>
-                </Pressable>
-              </Pressable>
-            );
-          })}
-          {items.length === 0 ? (
-            <Text style={styles.empty}>
-              No requirements yet — post your first requirement for sellers to
-              see.
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + spacing.lg,
+            paddingBottom: insets.bottom + spacing.xl,
+          },
+        ]}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.eyebrow}>BUYER DASHBOARD</Text>
+            <Text style={styles.title}>My requirements</Text>
+            <Text style={styles.subtitle}>
+              Manage what you need and hear from sellers.
             </Text>
-          ) : null}
-          {error && !pending ? <Text style={styles.errorText}>{error}</Text> : null}
+          </View>
+          <View style={styles.countBadge}>
+            <Text style={styles.count}>{count}</Text>
+            <Text style={styles.countLabel}>posted</Text>
+          </View>
         </View>
-      )}
-    </ScrollView>
-    <ConfirmSheet
-      visible={pending !== null}
-      title="Withdraw requirement?"
-      message={
-        pending
-          ? `${pending.item} — ${pending.bags} bags will be taken off the market.`
-          : ""
-      }
-      confirmTitle="Withdraw"
-      cancelTitle="Keep"
-      error={error}
-      isBusy={pendingBusy}
-      onConfirm={() => void handleSheetConfirm()}
-      onCancel={() => {
-        if (!pendingBusy) setPending(null);
-      }}
-    />
+
+        {isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.centerText}>Loading your requirements…</Text>
+          </View>
+        ) : error && items.length === 0 ? (
+          <View style={styles.stateCard}>
+            <Text style={styles.stateTitle}>Couldn’t load requirements</Text>
+            <Text style={styles.centerText}>{error}</Text>
+            <Button title="Try again" variant="secondary" onPress={retry} />
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Text style={styles.emptyIconText}>+</Text>
+            </View>
+            <Text style={styles.emptyTitle}>No requirements yet</Text>
+            <Text style={styles.emptyText}>
+              Post what you’re looking for and sellers can send offers directly
+              to you. Tap + to get started.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.listSection}>
+            <View style={styles.listHeading}>
+              <Text style={styles.listTitle}>Your posted needs</Text>
+              <Text style={styles.listCount}>{count}</Text>
+            </View>
+            <View style={styles.list}>
+              {items.map((req) => {
+                const busy = withdrawingId === String(req.id);
+                const details = [
+                  req.quality,
+                  req.paymentTerms ? `${req.paymentTerms} terms` : null,
+                  req.location,
+                ].filter((detail): detail is string => Boolean(detail));
+
+                return (
+                  <View key={String(req.id)} style={styles.card}>
+                    <Pressable
+                      style={styles.cardContent}
+                      onPress={() => openDetail(req)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${req.item}, ${req.bags} bags. View requirement details.`}
+                    >
+                      <View style={styles.cardInfo}>
+                        <View style={styles.categoryBadge}>
+                          <Text style={styles.categoryText} numberOfLines={1}>
+                            {req.category}
+                          </Text>
+                        </View>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {req.item}
+                        </Text>
+                        <Text style={styles.quantity} numberOfLines={1}>
+                          {req.bags.toLocaleString("en-IN")} bags
+                          {req.weightKg != null
+                            ? ` · ${req.weightKg} kg / bag`
+                            : ""}
+                        </Text>
+                        {details.length > 0 ? (
+                          <Text style={styles.details} numberOfLines={1}>
+                            {details.join(" · ")}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.priceSide}>
+                        <View style={styles.priceBlock}>
+                          <Text
+                            style={[
+                              styles.price,
+                              req.targetPrice <= 0 && styles.openPrice,
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {req.targetPrice > 0
+                              ? `₹${req.targetPrice.toLocaleString("en-IN")}`
+                              : "Open to offers"}
+                          </Text>
+                          {req.targetPrice > 0 ? (
+                            <Text style={styles.priceUnit}>per bag</Text>
+                          ) : null}
+                        </View>
+                        <ChevronIcon />
+                      </View>
+                    </Pressable>
+
+                    <View style={styles.cardActions}>
+                      <Text style={styles.actionHint}>View requirement</Text>
+                      <Pressable
+                        style={styles.withdrawAction}
+                        hitSlop={8}
+                        disabled={busy}
+                        onPress={() => setPending(req)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Withdraw ${req.item}`}
+                      >
+                        <Text
+                          style={[
+                            styles.withdrawText,
+                            busy && styles.withdrawBusy,
+                          ]}
+                        >
+                          {busy ? "Withdrawing…" : "Withdraw"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          </View>
+        )}
+      </ScrollView>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.fab,
+          { bottom: insets.bottom + spacing.md },
+          pressed && styles.fabPressed,
+        ]}
+        onPress={openForm}
+        accessibilityRole="button"
+        accessibilityLabel="Post a requirement"
+      >
+        <Text style={styles.fabPlus}>+</Text>
+      </Pressable>
+
+      <ConfirmSheet
+        visible={pending !== null}
+        title="Withdraw requirement?"
+        message={
+          pending
+            ? `${pending.item} — ${pending.bags} bags will be taken off the market.`
+            : ""
+        }
+        confirmTitle="Withdraw"
+        cancelTitle="Keep"
+        error={error}
+        isBusy={pendingBusy}
+        onConfirm={() => void handleSheetConfirm()}
+        onCancel={() => {
+          if (!pendingBusy) setPending(null);
+        }}
+      />
     </>
   );
 }
@@ -156,79 +237,183 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
+    paddingBottom: 96,
+    gap: spacing.lg,
     backgroundColor: colors.background,
   },
   header: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    gap: spacing.md,
   },
-  titleBlock: {
+  headerCopy: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: colors.primary,
   },
   title: {
     fontFamily: fonts.heading,
-    fontSize: 20,
+    fontSize: 25,
+    fontWeight: "800",
     color: colors.text,
   },
   subtitle: {
     fontFamily: fonts.body,
     fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+  },
+  countBadge: {
+    minWidth: 66,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primaryTint,
+    borderRadius: 14,
+  },
+  count: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.primaryDark,
+  },
+  countLabel: {
+    fontFamily: fonts.body,
+    fontSize: 10,
+    color: colors.primaryDark,
+  },
+  listSection: {
+    gap: spacing.sm,
+  },
+  listHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+  },
+  listTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  listCount: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
     color: colors.muted,
   },
   list: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  row: {
+  card: {
+    overflow: "hidden",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+  },
+  cardContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 12,
-    boxShadow: "0 1px 2px rgba(46,43,37,0.14)",
+    gap: spacing.md,
+    padding: spacing.md,
   },
-  rowMain: {
+  cardInfo: {
     flex: 1,
     minWidth: 0,
+    gap: 3,
   },
-  rowTag: {
+  categoryBadge: {
     alignSelf: "flex-start",
-    backgroundColor: colors.tagSolid,
+    backgroundColor: colors.primary,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    marginBottom: 4,
   },
-  rowTagText: {
+  categoryText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 11.5,
-    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.onPrimary,
   },
-  rowTitle: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
+  itemTitle: {
+    fontFamily: fonts.heading,
+    fontSize: 15,
+    fontWeight: "700",
     color: colors.text,
   },
-  rowSub: {
+  quantity: {
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    color: colors.muted,
+  },
+  details: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.muted,
+  },
+  priceSide: {
+    maxWidth: 120,
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  priceBlock: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "flex-end",
+  },
+  price: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "right",
+  },
+  openPrice: {
+    fontSize: 12,
+    color: colors.primaryDark,
+  },
+  priceUnit: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.muted,
+  },
+  actionHint: {
     fontFamily: fonts.body,
     fontSize: 12,
     color: colors.muted,
-    marginTop: 2,
   },
-  withdraw: {
+  cardActions: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+  },
+  withdrawAction: {
+    paddingVertical: spacing.sm,
+    paddingLeft: spacing.md,
+  },
+  withdrawText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: "600",
     color: colors.danger,
-    flexShrink: 0,
   },
   withdrawBusy: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   center: {
     alignItems: "center",
@@ -236,18 +421,86 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   centerText: {
+    fontFamily: fonts.body,
     fontSize: 13,
     color: colors.muted,
+    textAlign: "center",
+  },
+  stateCard: {
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+  },
+  stateTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  emptyCard: {
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+  },
+  emptyIcon: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primaryTint,
+    borderRadius: 24,
+  },
+  emptyIconText: {
+    fontSize: 28,
+    lineHeight: 32,
+    color: colors.primary,
+  },
+  emptyTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  emptyText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+    textAlign: "center",
   },
   errorText: {
-    fontSize: 13.5,
+    fontFamily: fonts.body,
+    fontSize: 13,
     color: colors.danger,
     textAlign: "center",
   },
-  empty: {
-    fontSize: 13,
-    color: colors.muted,
-    textAlign: "center",
-    paddingVertical: spacing.md,
+  fab: {
+    position: "absolute",
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+  },
+  fabPressed: {
+    opacity: 0.8,
+  },
+  fabPlus: {
+    fontSize: 32,
+    fontWeight: "300",
+    lineHeight: 34,
+    marginTop: -2,
+    color: colors.onPrimary,
   },
 });

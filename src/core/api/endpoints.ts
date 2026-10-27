@@ -45,6 +45,23 @@ export const LISTINGS_ENDPOINTS = {
   withdraw: (id: string) => `/listings/${id}/withdraw`,
 } as const;
 
+export const FREIGHT_ENDPOINTS = {
+  list: (params: {
+    page: number;
+    limit: number;
+    origin?: string;
+    destination?: string;
+  }) => {
+    const query = new URLSearchParams({
+      page: String(params.page),
+      limit: String(params.limit),
+    });
+    if (params.origin) query.set("origin", params.origin);
+    if (params.destination) query.set("destination", params.destination);
+    return `/freight?${query.toString()}`;
+  },
+} as const;
+
 export const COMMODITY_CATEGORIES_ENDPOINTS = {
   // Backend paginates (default 20, max 100) — take the max so dropdowns never truncate.
   list: "/commodity-categories?limit=100",

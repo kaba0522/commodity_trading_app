@@ -101,15 +101,24 @@ export const addListingSchema = z.object({
 export type AddListingSchema = z.infer<typeof addListingSchema>;
 
 /**
- * Buyer post-requirement validation — mirrors backend
- * `validateBuyRequirementInput`: categoryId + commodityId UUIDs,
- * categoryId + commodityId UUIDs and quantityBags required. BUY requirements
- * do not accept a price; sellers and buyers negotiate it later.
+ * Buyer post-requirement client validation: categoryId, commodityId, and
+ * quantity are required; optional listing details can also be supplied.
+ * BUY requirements do not accept a price; sellers and buyers negotiate later.
  */
 export const postRequirementSchema = z.object({
   categoryId: uuid,
   commodityId: uuid,
+  quality: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (QUALITY_GRADES as readonly string[]).includes(v), {
+      message: `Quality must be one of: ${QUALITY_GRADES.join(", ")}`,
+    }),
   quantity: positiveIntString("Quantity"),
+  weightKg: optionalPositiveIntString("Weight"),
+  paymentTerms: optionalNonNegativeIntString("Payment terms (days)"),
+  location: z.string().trim().max(120, "Keep delivery location under 120 characters"),
+  notes: z.string().max(500, "Keep notes under 500 characters"),
 });
 
 export type PostRequirementSchema = z.infer<typeof postRequirementSchema>;

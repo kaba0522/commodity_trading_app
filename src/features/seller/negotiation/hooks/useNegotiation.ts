@@ -12,6 +12,10 @@ export interface NegotiationSeed {
   bags?: string;
   targetPrice?: string;
   paymentTerms?: string;
+  quality?: string;
+  weightKg?: string;
+  location?: string;
+  notes?: string;
 }
 
 export interface NegotiationStatus {
@@ -34,6 +38,10 @@ function seedFromParams(seed: NegotiationSeed): BuyerRequirement | null {
     paymentTerms: seed.paymentTerms || "",
     targetPrice: Number.isFinite(targetPrice) ? targetPrice : 0,
     bags: Number.isFinite(bags) ? bags : 0,
+    quality: seed.quality || undefined,
+    weightKg: Number(seed.weightKg ?? "") || undefined,
+    location: seed.location || undefined,
+    notes: seed.notes || undefined,
   };
 }
 

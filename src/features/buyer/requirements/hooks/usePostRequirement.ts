@@ -5,12 +5,25 @@ import { postRequirementSchema } from "@/features/seller/listings/schemas/listin
 import { catalogApi, type CatalogCategory, type CatalogCommodity } from "@/features/shared/catalog/api/catalogApi";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-export type PostRequirementField = "categoryId" | "commodityId" | "quantity";
+export type PostRequirementField =
+  | "categoryId"
+  | "commodityId"
+  | "quality"
+  | "quantity"
+  | "weightKg"
+  | "paymentTerms"
+  | "location"
+  | "notes";
 
 export interface PostRequirementValues {
   categoryId: string;
   commodityId: string;
+  quality: string;
   quantity: string;
+  weightKg: string;
+  paymentTerms: string;
+  location: string;
+  notes: string;
 }
 
 export type PostRequirementFieldErrors = Partial<Record<PostRequirementField, string>>;
@@ -18,13 +31,17 @@ export type PostRequirementFieldErrors = Partial<Record<PostRequirementField, st
 const INITIAL_VALUES: PostRequirementValues = {
   categoryId: "",
   commodityId: "",
+  quality: "",
   quantity: "",
+  weightKg: "",
+  paymentTerms: "",
+  location: "",
+  notes: "",
 };
 
 /**
  * Buyer post-requirement form: category → commodity (live UUIDs), quantity
- * (required), then POSTs `side: "BUY"`. The backend does not allow a price
- * on BUY requirements; pricing is agreed during negotiation.
+ * (required), and optional trade details. BUY requirements do not include price.
  */
 export function usePostRequirement() {
   const { runWithAuth } = useAuth();
@@ -152,7 +169,12 @@ export function usePostRequirement() {
     const parsed = postRequirementSchema.safeParse({
       categoryId: values.categoryId,
       commodityId: values.commodityId,
+      quality: values.quality,
       quantity: values.quantity,
+      weightKg: values.weightKg,
+      paymentTerms: values.paymentTerms,
+      location: values.location,
+      notes: values.notes,
     });
     if (!parsed.success) {
       const nextErrors: PostRequirementFieldErrors = {};
@@ -171,6 +193,15 @@ export function usePostRequirement() {
             categoryId: values.categoryId.trim(),
             commodityId: values.commodityId.trim(),
             quantityBags: Number(values.quantity.trim()),
+            quality: values.quality.trim() || null,
+            weightKg: values.weightKg.trim()
+              ? Number(values.weightKg.trim())
+              : null,
+            paymentTerms: values.paymentTerms.trim()
+              ? Number(values.paymentTerms.trim())
+              : null,
+            location: values.location.trim() || null,
+            notes: values.notes.trim() || null,
           },
           token,
         ),
