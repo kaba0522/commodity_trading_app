@@ -39,8 +39,6 @@ export function PaymentTermsScreen() {
     }
   }, [profile]);
 
-  const name = session?.user.firmName || session?.user.name || "Account";
-
   async function handleSave() {
     const trimmed = days.trim();
     if (trimmed === "") {
@@ -73,7 +71,7 @@ export function PaymentTermsScreen() {
           },
         ]}
       >
-        <ProfileHeader initial={name.slice(0, 1).toUpperCase()} />
+        <ProfileHeader />
 
         <Text style={styles.title}>Payment terms</Text>
 

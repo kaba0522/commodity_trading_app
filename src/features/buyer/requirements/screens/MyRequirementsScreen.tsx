@@ -52,6 +52,18 @@ export function MyRequirementsScreen() {
     });
   }
 
+  function openEdit(req: BuyerRequirement) {
+    router.push({
+      pathname: "/post-req/edit/[id]",
+      params: {
+        id: String(req.id),
+        categoryId: req.categoryId ?? "",
+        commodityId: req.commodityId ?? "",
+        quantity: String(req.bags),
+      },
+    });
+  }
+
   async function handleSheetConfirm() {
     if (!pending || pendingBusy) return;
     const ok = await withdraw(pending.id);
@@ -71,7 +83,7 @@ export function MyRequirementsScreen() {
       >
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>BUYER DASHBOARD</Text>
+            {/* <Text style={styles.eyebrow}>BUYER DASHBOARD</Text> */}
             <Text style={styles.title}>My requirements</Text>
             <Text style={styles.subtitle}>
               Manage what you need and hear from sellers.
@@ -109,7 +121,7 @@ export function MyRequirementsScreen() {
           <View style={styles.listSection}>
             <View style={styles.listHeading}>
               <Text style={styles.listTitle}>Your posted needs</Text>
-              <Text style={styles.listCount}>{count}</Text>
+              {/* <Text style={styles.listCount}>{count}</Text> */}
             </View>
             <View style={styles.list}>
               {items.map((req) => {
@@ -172,23 +184,34 @@ export function MyRequirementsScreen() {
 
                     <View style={styles.cardActions}>
                       <Text style={styles.actionHint}>View requirement</Text>
-                      <Pressable
-                        style={styles.withdrawAction}
-                        hitSlop={8}
-                        disabled={busy}
-                        onPress={() => setPending(req)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Withdraw ${req.item}`}
-                      >
-                        <Text
-                          style={[
-                            styles.withdrawText,
-                            busy && styles.withdrawBusy,
-                          ]}
+                      <View style={styles.actionButtons}>
+                        <Pressable
+                          style={styles.editAction}
+                          hitSlop={8}
+                          onPress={() => openEdit(req)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit ${req.item}`}
                         >
-                          {busy ? "Withdrawing…" : "Withdraw"}
-                        </Text>
-                      </Pressable>
+                          <Text style={styles.editText}>Edit</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.withdrawAction}
+                          hitSlop={8}
+                          disabled={busy}
+                          onPress={() => setPending(req)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Withdraw ${req.item}`}
+                        >
+                          <Text
+                            style={[
+                              styles.withdrawText,
+                              busy && styles.withdrawBusy,
+                            ]}
+                          >
+                            {busy ? "Withdrawing…" : "Withdraw"}
+                          </Text>
+                        </Pressable>
+                      </View>
                     </View>
                   </View>
                 );
@@ -401,6 +424,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingHorizontal: spacing.md,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  editAction: {
+    paddingVertical: spacing.sm,
+  },
+  editText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primaryDark,
   },
   withdrawAction: {
     paddingVertical: spacing.sm,

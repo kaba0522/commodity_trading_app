@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
 import { BackButton } from "@/components/common/BackButton";
+import { Button } from "@/components/ui/Button";
 import { priceLabel } from "@/core/utils/format";
 import { useListingDetail } from "@/features/seller/listings/hooks/useListingDetail";
 import { colors } from "@/theme/colors";
@@ -33,7 +33,7 @@ function priceExpiryLabel(value: string | null | undefined): string {
     minute: "2-digit",
     timeZone: "Asia/Kolkata",
   });
-  return `Valid until ${formatted} IST`;
+  return `Valid until ${formatted}`;
 }
 
 /**
@@ -99,8 +99,8 @@ export function ListingDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.kicker}>Photos &amp; sample video</Text>
             <Text style={styles.body}>
-              Buyers see these on the listing — a video sample can stand in
-              for an in-person check.
+              Buyers see these on the listing — a video sample can stand in for
+              an in-person check.
             </Text>
             <View style={styles.mediaRow}>
               <View style={styles.mediaSlot}>
@@ -115,7 +115,8 @@ export function ListingDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.kicker}>Payment terms</Text>
             <Text style={styles.body}>
-              {listing.paymentTerms !== null && listing.paymentTerms !== undefined
+              {listing.paymentTerms !== null &&
+              listing.paymentTerms !== undefined
                 ? `${listing.paymentTerms} days`
                 : "Not provided"}
             </Text>
@@ -206,16 +207,17 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   validTag: {
+    backgroundColor: colors.accent2Tint,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.success,
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   validTagText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: colors.muted,
+    fontWeight: "700",
+    color: colors.tagSolid,
   },
   card: {
     gap: spacing.sm,

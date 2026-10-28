@@ -82,7 +82,7 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
   const method = options.method ?? "GET";
   if (__DEV__) {
-    console.log(`[api] ${method} ${url}`, options.body !== undefined ? options.body : "");
+    console.log(`[api] ${method} ${url}`);
   }
   try {
     const res = await fetch(url, {
@@ -99,13 +99,13 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
       const raw = await res.text().catch(() => "");
       const message = extractErrorMessage(raw, res.status);
       if (__DEV__) {
-        console.log(`[api] ${res.status} ${method} ${url}`, raw);
+        console.log(`[api] ${res.status} ${method} ${url}`);
       }
       throw new ApiError(res.status, message);
     }
     const data = (await res.json()) as T;
     if (__DEV__) {
-      console.log(`[api] OK ${method} ${url}`, data);
+      console.log(`[api] OK ${method} ${url}`);
     }
     return data;
   } finally {
@@ -142,13 +142,13 @@ export async function apiUpload<T>(
     if (!res.ok) {
       const raw = await res.text().catch(() => "");
       if (__DEV__) {
-        console.log(`[api] ${res.status} POST ${url}`, raw);
+        console.log(`[api] ${res.status} POST ${url}`);
       }
       throw new ApiError(res.status, extractErrorMessage(raw, res.status));
     }
     const data = (await res.json()) as T;
     if (__DEV__) {
-      console.log(`[api] OK POST ${url}`, data);
+      console.log(`[api] OK POST ${url}`);
     }
     return data;
   } finally {

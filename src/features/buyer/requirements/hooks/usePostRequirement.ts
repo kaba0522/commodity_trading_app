@@ -26,6 +26,11 @@ export interface PostRequirementValues {
   notes: string;
 }
 
+interface UsePostRequirementOptions {
+  editId?: string;
+  initialValues?: Partial<PostRequirementValues>;
+}
+
 export type PostRequirementFieldErrors = Partial<Record<PostRequirementField, string>>;
 
 const INITIAL_VALUES: PostRequirementValues = {
@@ -43,9 +48,13 @@ const INITIAL_VALUES: PostRequirementValues = {
  * Buyer post-requirement form: category → commodity (live UUIDs), quantity
  * (required), and optional trade details. BUY requirements do not include price.
  */
-export function usePostRequirement() {
+export function usePostRequirement(options: UsePostRequirementOptions = {}) {
   const { runWithAuth } = useAuth();
-  const [values, setValues] = useState<PostRequirementValues>(INITIAL_VALUES);
+  const [initialValues] = useState<PostRequirementValues>(() => ({
+    ...INITIAL_VALUES,
+    ...options.initialValues,
+  }));
+  const [values, setValues] = useState<PostRequirementValues>(initialValues);
   const [fieldErrors, setFieldErrors] = useState<PostRequirementFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -166,6 +175,48 @@ export function usePostRequirement() {
   async function submit(): Promise<boolean> {
     setError(null);
     setSuccess(null);
+    const editId = options.editId;
+    if (editId) {
+      const quantity = values.quantity.trim();
+      const quantityNumber = Number(quantity);
+      if (
+        !/^\d+$/.test(quantity) ||
+        !Number.isSafeInteger(quantityNumber) ||
+        quantityNumber <= 0
+      ) {
+        setFieldErrors((previous) => ({
+          ...previous,
+          quantity: "Quantity must be a positive whole number",
+        }));
+        return false;
+      }
+
+      const quantityChanged = quantityNumber !== Number(initialValues.quantity);
+      if (!quantityChanged) {
+        setSuccess("No changes to save.");
+        return true;
+      }
+
+      setIsLoading(true);
+      try {
+        await runWithAuth((token) =>
+          requirementsApi.update(
+            editId,
+            { quantityBags: quantityNumber },
+            token,
+          ),
+        );
+        setFieldErrors({});
+        setSuccess("Requirement updated successfully.");
+        return true;
+      } catch (e) {
+        setError(getFriendlyApiError(e, "Could not update the requirement"));
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     const parsed = postRequirementSchema.safeParse({
       categoryId: values.categoryId,
       commodityId: values.commodityId,
@@ -238,5 +289,6 @@ export function usePostRequirement() {
     retryCommodities,
     categoryNameById,
     commodityNameById,
+    isEditing: Boolean(options.editId),
   };
 }

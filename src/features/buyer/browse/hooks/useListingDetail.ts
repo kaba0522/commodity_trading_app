@@ -64,7 +64,16 @@ export function useListingDetail(seed: BrowseDetailSeed) {
     setIsLoading(true);
     setError(null);
     try {
-      setListing(await runWithAuth((token) => listingsApi.getById(id, token)));
+      const fetched = await runWithAuth((token) =>
+        listingsApi.getById(id, token),
+      );
+      setListing((current) => ({
+        ...fetched,
+        priceValidUntil:
+          fetched.priceValidUntil ??
+          (current?.id === fetched.id ? current.priceValidUntil : null) ??
+          null,
+      }));
     } catch (e) {
       // Keep the seeded row when refresh fails — the page still works.
       if (!item || !seller) {

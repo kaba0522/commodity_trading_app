@@ -210,6 +210,8 @@ function normalizeRequirement(
     // `Number(id)` collapses every UUID to 0 → duplicate React keys and
     // every row opening the same detail.
     id,
+    ...(categoryId != null ? { categoryId: String(categoryId) } : {}),
+    ...(commodityId != null ? { commodityId: String(commodityId) } : {}),
     category: categoryName as Category,
     item,
     buyer:
@@ -301,6 +303,10 @@ export interface CreateRequirementInput {
   notes?: string | null;
 }
 
+export interface UpdateRequirementInput {
+  quantityBags: number;
+}
+
 export const requirementsApi = {
   /**
    * POST `/listings` with `side: "BUY"` — post a buyer requirement.
@@ -332,6 +338,32 @@ export const requirementsApi = {
       throw new ApiError(
         502,
         "The server returned this requirement in an unsupported format.",
+      );
+    }
+    return requirement;
+  },
+
+  /**
+   * PATCH `/listings/:id` with only the changed BUY-side fields.
+   */
+  async update(
+    id: string | number,
+    input: UpdateRequirementInput,
+    token: string,
+  ): Promise<BuyerRequirement> {
+    const raw = await apiFetch<unknown>(
+      apiUrl(LISTINGS_ENDPOINTS.byId(String(id))),
+      {
+        method: "PATCH",
+        token,
+        body: input,
+      },
+    );
+    const requirement = normalizeRequirement(unwrapOne(raw));
+    if (!requirement) {
+      throw new ApiError(
+        502,
+        "The server returned this updated requirement in an unsupported format.",
       );
     }
     return requirement;

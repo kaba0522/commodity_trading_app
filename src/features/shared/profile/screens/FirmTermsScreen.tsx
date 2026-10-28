@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
-import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
 import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
@@ -17,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * up to 2000 characters server-side).
  */
 export function FirmTermsScreen() {
-  const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const { profile, save, isSaving, saveError, saved } = useMyProfile();
   const [terms, setTerms] = useState("");
@@ -30,8 +28,6 @@ export function FirmTermsScreen() {
       setTerms(profile.firmNotes ?? "");
     }
   }, [profile]);
-
-  const name = session?.user.firmName || session?.user.name || "Account";
 
   async function handleSave() {
     if (!terms.trim()) {
@@ -54,7 +50,7 @@ export function FirmTermsScreen() {
           },
         ]}
       >
-        <ProfileHeader initial={name.slice(0, 1).toUpperCase()} />
+        <ProfileHeader />
 
         <Text style={styles.title}>Terms of Service</Text>
 

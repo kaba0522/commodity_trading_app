@@ -7,6 +7,14 @@ export const AUTH_ENDPOINTS = {
   logout: "/auth/logout",
 } as const;
 
+export const CLOUDINARY_ENDPOINTS = {
+  signUrl: "/cloudinary/upload-url",
+} as const;
+
+export const MEDIA_ENDPOINTS = {
+  sign: "/media/sign",
+} as const;
+
 export const TOS_ENDPOINTS = {
   current: "/tos-versions/current",
   accept: "/tos/accept",
@@ -15,6 +23,10 @@ export const TOS_ENDPOINTS = {
 
 export const USERS_ENDPOINTS = {
   me: "/users/me",
+} as const;
+
+export const SETTINGS_ENDPOINTS = {
+  byKey: (key: string) => `/settings/${encodeURIComponent(key)}`,
 } as const;
 
 export const LISTINGS_ENDPOINTS = {

@@ -44,6 +44,10 @@ export interface Listing {
   status?: ListingStatus;
   /** Owner/seller user id when the payload carries it — used to scope the seller dashboard to own listings. */
   sellerId?: string;
+  /** Cloudinary secure URLs for listing photos (max 5). Filled by /media/sign upload flow. */
+  photoUrls?: string[];
+  /** Cloudinary secure URL for listing sample video (max 1). Filled by /media/sign upload flow. */
+  videoUrls?: string[];
 }
 
 /** Seller's own listing (dashboard). `price: null` = awaiting today's price. */
@@ -71,6 +75,8 @@ export interface Requirement {
 export interface BuyerRequirement {
   /** Backend UUID (string) or legacy numeric id — never coerce to number. */
   id: string | number;
+  categoryId?: string;
+  commodityId?: string;
   category: Category;
   item: string;
   buyer: string;

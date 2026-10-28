@@ -3,6 +3,7 @@ import {
   COMMODITIES_ENDPOINTS,
   COMMODITY_CATEGORIES_ENDPOINTS,
   LISTINGS_ENDPOINTS,
+  SETTINGS_ENDPOINTS,
   apiUrl,
 } from "@/core/api/endpoints";
 import type { Category, Listing, ListingStatus } from "@/types/domain";
@@ -27,6 +28,10 @@ export interface CreateListingInput {
   /** Per-listing override in days; null = the firm default applies. */
   paymentTerms?: number | null;
   notes?: string | null;
+  /** Cloudinary secure URLs for listing photos (max 5). */
+  photoUrls?: string[];
+  /** Cloudinary secure URL for listing sample video (max 1). */
+  videoUrls?: string[];
 }
 
 /** Minimal created-listing shape (tolerates `{ success, data }` or flat). */
@@ -116,6 +121,8 @@ function toPayload(input: CreateListingInput): Record<string, unknown> {
   if (input.size) body["size"] = input.size;
   if (input.paymentTerms) body["paymentTerms"] = input.paymentTerms;
   if (input.notes) body["notes"] = input.notes;
+  if (input.photoUrls) body["photoUrls"] = input.photoUrls;
+  if (input.videoUrls) body["videoUrls"] = input.videoUrls;
   return body;
 }
 
@@ -312,6 +319,22 @@ function pickNumber(
   return null;
 }
 
+function pickStringArray(
+  obj: Record<string, unknown>,
+  ...keys: string[]
+): string[] {
+  for (const key of keys) {
+    const value = obj[key];
+    if (Array.isArray(value)) {
+      return value.filter(
+        (item): item is string =>
+          typeof item === "string" && item.trim().length > 0,
+      );
+    }
+  }
+  return [];
+}
+
 /** Backend sends `{ success: true, data: ... }`; accept bare payloads too. */
 function unwrapOne(raw: unknown): Record<string, unknown> {
   if (raw && typeof raw === "object") {
@@ -426,10 +449,53 @@ function normalizeListing(
     price: pickNumber(obj, "price") ?? 0,
     paymentTerms: pickNumber(obj, "paymentTerms", "payment_terms"),
     priceValidUntil: pickString(obj, "priceValidUntil", "price_valid_until") || null,
+    photoUrls: pickStringArray(obj, "photoUrls", "photo_urls"),
+    videoUrls: pickStringArray(obj, "videoUrls", "video_urls"),
     ...(bags != null ? { bags } : {}),
     ...(status ? { status } : {}),
     ...(sellerId ? { sellerId } : {}),
   } as Listing;
+}
+
+async function getNextPriceExpiry(token: string): Promise<string> {
+  let time = "02:00";
+  try {
+    const raw = await apiFetch<unknown>(
+      apiUrl(SETTINGS_ENDPOINTS.byKey("price_expiry_time")),
+      { token },
+    );
+    const setting = unwrapOne(raw);
+    const value = setting["value"];
+    const configuredTime =
+      value !== null && typeof value === "object"
+        ? (value as Record<string, unknown>)["time"]
+        : undefined;
+    if (
+      typeof configuredTime !== "string" ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(configuredTime)
+    ) {
+      throw new ApiError(502, "The server returned an invalid price expiry time.");
+    }
+    time = configuredTime;
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+  }
+
+  const [hours, minutes] = time.split(":").map(Number);
+  const now = new Date();
+  const istNow = new Date(now.getTime() + 330 * 60 * 1000);
+  const cutoffUtc =
+    Date.UTC(
+      istNow.getUTCFullYear(),
+      istNow.getUTCMonth(),
+      istNow.getUTCDate(),
+      hours,
+      minutes,
+    ) -
+    330 * 60 * 1000;
+  return new Date(
+    cutoffUtc <= now.getTime() ? cutoffUtc + 24 * 60 * 60 * 1000 : cutoffUtc,
+  ).toISOString();
 }
 
 function normalizeCreated(raw: unknown): CreatedListing {
@@ -516,6 +582,13 @@ export const listingsApi = {
     const listing = normalizeListing(unwrapOne(raw), maps);
     if (!listing)
       throw new ApiError(500, "Unexpected server response to listing detail.");
+    if (
+      !listing.priceValidUntil &&
+      listing.price > 0 &&
+      (!listing.status || listing.status === "active")
+    ) {
+      listing.priceValidUntil = await getNextPriceExpiry(token);
+    }
     return listing;
   },
 

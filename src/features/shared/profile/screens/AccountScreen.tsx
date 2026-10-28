@@ -79,7 +79,6 @@ export function AccountScreen() {
   const [otpSentTo, setOtpSentTo] = useState<string | null>(null);
 
   const displayName = firmName.trim() || name.trim() || "Account";
-  const initial = displayName.slice(0, 1).toUpperCase();
   const roleLabel = role
     ? role.charAt(0).toUpperCase() + role.slice(1)
     : "Account";
@@ -130,7 +129,7 @@ export function AccountScreen() {
           },
         ]}
       >
-        <ProfileHeader initial={initial} />
+        <ProfileHeader />
 
         <Text style={styles.title}>Account</Text>
 

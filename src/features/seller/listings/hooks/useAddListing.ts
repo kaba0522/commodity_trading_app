@@ -18,7 +18,9 @@ export type AddListingField =
   | "size"
   | "overridePayment"
   | "paymentTerms"
-  | "notes";
+  | "notes"
+  | "photoUrls"
+  | "videoUrls";
 
 export interface AddListingValues {
   categoryId: string;
@@ -33,6 +35,8 @@ export interface AddListingValues {
   overridePayment: boolean;
   paymentTerms: string;
   notes: string;
+  photoUrls: string[];
+  videoUrls: string[];
 }
 
 export type AddListingFieldErrors = Partial<Record<AddListingField, string>>;
@@ -50,6 +54,8 @@ const INITIAL_VALUES: AddListingValues = {
   overridePayment: false,
   paymentTerms: "",
   notes: "",
+  photoUrls: [],
+  videoUrls: [],
 };
 
 /**
@@ -101,6 +107,19 @@ export function useAddListing() {
     [],
   );
 
+  const setMediaField = useCallback(
+    (
+      field: "photoUrls" | "videoUrls",
+      update: string[] | ((current: string[]) => string[]),
+    ) => {
+      setValues((prev) => ({
+        ...prev,
+        [field]: typeof update === "function" ? update(prev[field]) : update,
+      }));
+    },
+    [],
+  );
+
   const reset = useCallback(() => {
     setValues(INITIAL_VALUES);
     setFieldErrors({});
@@ -124,6 +143,8 @@ export function useAddListing() {
       size: values.size,
       paymentTerms: values.paymentTerms,
       notes: values.notes,
+      photoUrls: values.photoUrls,
+      videoUrls: values.videoUrls,
     });
     const nextErrors: AddListingFieldErrors = {};
     if (!parsed.success) {
@@ -163,6 +184,8 @@ export function useAddListing() {
               ? Number(values.paymentTerms.trim())
               : null,
             notes: values.notes.trim() || null,
+            photoUrls: values.photoUrls,
+            videoUrls: values.videoUrls,
           },
           token,
         ),
@@ -186,6 +209,7 @@ export function useAddListing() {
   return {
     values,
     setField,
+    setMediaField,
     fieldErrors,
     error,
     success,

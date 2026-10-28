@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "yes",
+      "bundleIdentifier": "com.directrade.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -42,7 +42,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to scan price sheets.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for listings and price-sheet scanning.",
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan price sheets.",
           "microphonePermission": false
         }

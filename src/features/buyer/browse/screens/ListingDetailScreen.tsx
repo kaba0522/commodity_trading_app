@@ -30,7 +30,7 @@ function priceExpiryLabel(value: string | null | undefined): string {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "Asia/Kolkata",
-  })} IST`;
+  })}`;
 }
 
 /**
@@ -307,16 +307,17 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   validTag: {
+    backgroundColor: colors.accent2Tint,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.success,
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   validTagText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: colors.muted,
+    fontWeight: "700",
+    color: colors.accent2Dark,
   },
   card: {
     gap: spacing.sm,

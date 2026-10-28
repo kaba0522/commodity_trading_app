@@ -6,7 +6,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ProfileHeader } from "@/features/shared/profile/components/ProfileHeader";
 import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBar";
 import { colors } from "@/theme/colors";
@@ -27,15 +26,12 @@ const OPTIONS: { key: PreferenceKey; label: string; defaultOn: boolean }[] = [
  * Local-only until the backend preferences contract exists.
  */
 export function PreferencesScreen() {
-  const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const [enabled, setEnabled] = useState<Record<PreferenceKey, boolean>>({
     push: true,
     whatsapp: true,
     sms: false,
   });
-
-  const name = session?.user.firmName || session?.user.name || "Account";
 
   function toggle(key: PreferenceKey) {
     setEnabled((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -53,7 +49,7 @@ export function PreferencesScreen() {
           },
         ]}
       >
-        <ProfileHeader initial={name.slice(0, 1).toUpperCase()} />
+        <ProfileHeader />
 
         <Text style={styles.title}>Preferences</Text>
 

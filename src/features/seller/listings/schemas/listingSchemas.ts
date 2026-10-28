@@ -76,8 +76,9 @@ const optionalNonNegativeIntString = (field: string) =>
  * Seller Add-listing validation — mirrors backend `validateSellListingInput`:
  * categoryId + commodityId UUIDs, quantityBags required, price and weightKg
  * optional, quality one of the backend grades or empty, payment terms as a
- * non-negative integer when supplied. Photo/video uploads are not supported.
- * All fields stay strings here — the hook converts numbers at the boundary.
+ * non-negative integer when supplied, and media URL counts within backend limits.
+ * Scalar fields stay strings here; the hook converts numbers at the boundary.
+ * Media fields are arrays of uploaded Cloudinary URLs.
  */
 export const addListingSchema = z.object({
   categoryId: uuid,
@@ -96,6 +97,8 @@ export const addListingSchema = z.object({
   size: z.string().max(40, "Keep size under 40 characters"),
   paymentTerms: optionalNonNegativeIntString("Payment terms (days)"),
   notes: z.string().max(500, "Keep notes under 500 characters"),
+  photoUrls: z.array(z.string().url()).max(5, "A listing can have at most 5 photos"),
+  videoUrls: z.array(z.string().url()).max(1, "A listing can have at most 1 video"),
 });
 
 export type AddListingSchema = z.infer<typeof addListingSchema>;
