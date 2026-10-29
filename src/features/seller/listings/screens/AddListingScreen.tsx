@@ -11,8 +11,10 @@ import { useAddListing } from "@/features/seller/listings/hooks/useAddListing";
 import { QUALITY_GRADES } from "@/features/seller/listings/schemas/listingSchemas";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -66,17 +68,29 @@ function validateMediaAsset(
   return null;
 }
 
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.readOnlyValue}>{value || "Not provided"}</Text>
+    </View>
+  );
+}
+
 /**
- * Seller Add listing: category → commodity (live backend UUIDs), quality
- * grade, quantity (required), weight and price (optional); publishes
- * `side: "SELL"` to the real backend. Photos/videos are uploaded directly
- * to Cloudinary via signed URLs, and the resulting secure_url(s) are sent
- * to the backend when creating the listing.
+ * Seller listing form: category → commodity (live backend UUIDs), quality
+ * grade, quantity (required), weight and price (optional). Supports creating
+ * and editing listings. Photos/videos are uploaded directly to Cloudinary
+ * via signed URLs before saving.
  * itemName is derived server-side from the commodity, so there is no free-text item field.
  */
 export function AddListingScreen() {
   const insets = useSafeAreaInsets();
-  const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const editListingId = typeof id === "string" ? id : undefined;
+  const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(
+    Boolean(editListingId),
+  );
   const [isPickingMedia, setIsPickingMedia] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -97,7 +111,10 @@ export function AddListingScreen() {
     defaultPaymentTerms,
     categoryNameById,
     commodityNameById,
-  } = useAddListing();
+    editListingLoading,
+    editListingError,
+    retryEditListing,
+  } = useAddListing(editListingId);
   const photos = values.photoUrls;
   const sampleVideo = values.videoUrls[0] ?? null;
 
@@ -220,6 +237,38 @@ export function AddListingScreen() {
     }
   }
 
+  async function handleSubmit() {
+    const saved = await submit();
+    if (saved && editListingId) {
+      router.replace({ pathname: "/listing/[id]", params: { id: editListingId } });
+    }
+  }
+
+  if (editListingId && editListingLoading) {
+    return (
+      <View style={[styles.flex, styles.centered]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.muted}>Loading listing details…</Text>
+      </View>
+    );
+  }
+
+  if (editListingId && editListingError) {
+    return (
+      <View
+        style={[
+          styles.flex,
+          styles.centered,
+          { paddingTop: insets.top + spacing.md },
+        ]}
+      >
+        <BackButton accessibilityLabel="Back to listing details" />
+        <FormStatus kind="error" message={editListingError} />
+        <Button title="Retry" variant="secondary" onPress={retryEditListing} />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -238,49 +287,63 @@ export function AddListingScreen() {
             fallback="/add-listing"
           />
         </View>
-        <Text style={styles.title}>Add listing</Text>
+        <Text style={styles.title}>
+          {editListingId ? "Edit listing" : "Add listing"}
+        </Text>
         <Text style={styles.subtitle}>
-          Publish today&apos;s price for one commodity.
+          {editListingId
+            ? "Update the details for your listing."
+            : "Publish today&apos;s price for one commodity."}
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Product details</Text>
-          <Dropdown
-            label="Category"
-            placeholder={categoriesLoading ? "Loading categories…" : "Select a category"}
-            value={selectedCategoryName}
-            options={categoryOptions}
-            onChange={(name) => {
-              const found = categories.find((c) => c.name === name);
-              if (found) setField("categoryId", found.id);
-            }}
-            error={fieldErrors.categoryId ?? null}
-          />
-          {!categoriesLoading && categories.length === 0 ? (
-            <Text style={styles.fieldError}>
-              Could not load categories. Check your connection and reopen this tab.
-            </Text>
-          ) : null}
+          {editListingId ? (
+            <>
+              <ReadOnlyField label="Category" value={selectedCategoryName} />
+              <ReadOnlyField label="Commodity" value={selectedCommodityName} />
+              <ReadOnlyField label="Quality grade" value={values.quality} />
+            </>
+          ) : (
+            <>
+              <Dropdown
+                label="Category"
+                placeholder={categoriesLoading ? "Loading categories…" : "Select a category"}
+                value={selectedCategoryName}
+                options={categoryOptions}
+                onChange={(name) => {
+                  const found = categories.find((c) => c.name === name);
+                  if (found) setField("categoryId", found.id);
+                }}
+                error={fieldErrors.categoryId ?? null}
+              />
+              {!categoriesLoading && categories.length === 0 ? (
+                <Text style={styles.fieldError}>
+                  Could not load categories. Check your connection and reopen this tab.
+                </Text>
+              ) : null}
 
-          <Dropdown
-            label="Commodity"
-            placeholder={commodityPlaceholder}
-            value={selectedCommodityName}
-            options={commodityOptions}
-            onChange={(name) => {
-              const found = commodities.find((c) => c.name === name);
-              if (found) setField("commodityId", found.id);
-            }}
-            error={fieldErrors.commodityId ?? null}
-          />
-          <Dropdown
-            label="Quality grade (optional)"
-            placeholder="Select a quality grade"
-            value={values.quality}
-            options={QUALITY_GRADES}
-            onChange={(v) => setField("quality", v)}
-            error={fieldErrors.quality ?? null}
-          />
+              <Dropdown
+                label="Commodity"
+                placeholder={commodityPlaceholder}
+                value={selectedCommodityName}
+                options={commodityOptions}
+                onChange={(name) => {
+                  const found = commodities.find((c) => c.name === name);
+                  if (found) setField("commodityId", found.id);
+                }}
+                error={fieldErrors.commodityId ?? null}
+              />
+              <Dropdown
+                label="Quality grade"
+                placeholder="Select a quality grade"
+                value={values.quality}
+                options={QUALITY_GRADES}
+                onChange={(v) => setField("quality", v)}
+                error={fieldErrors.quality ?? null}
+              />
+            </>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -290,14 +353,18 @@ export function AddListingScreen() {
               <Text style={styles.label}>
                 Weight per bag (kg) <Text style={styles.optionalTag}>optional</Text>
               </Text>
-              <TextInput
-                style={[styles.input, fieldErrors.weightKg ? styles.inputError : null]}
-                value={values.weightKg}
-                onChangeText={(v) => setField("weightKg", v.replace(/[^0-9]/g, ""))}
-                placeholder="30"
-                placeholderTextColor={colors.muted}
-                keyboardType="number-pad"
-              />
+              {editListingId ? (
+                <Text style={styles.readOnlyValue}>{values.weightKg || "Not provided"}</Text>
+              ) : (
+                <TextInput
+                  style={[styles.input, fieldErrors.weightKg ? styles.inputError : null]}
+                  value={values.weightKg}
+                  onChangeText={(v) => setField("weightKg", v.replace(/[^0-9]/g, ""))}
+                  placeholder="30"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="number-pad"
+                />
+              )}
               {fieldErrors.weightKg ? (
                 <Text style={styles.fieldError}>{fieldErrors.weightKg}</Text>
               ) : null}
@@ -335,7 +402,18 @@ export function AddListingScreen() {
             ) : null}
           </View>
 
-          {defaultPaymentTerms === null ? (
+          {editListingId ? (
+            <ReadOnlyField
+              label="Payment terms (days)"
+              value={
+                values.overridePayment
+                  ? values.paymentTerms
+                  : defaultPaymentTerms !== null
+                    ? `${defaultPaymentTerms} (firm default)`
+                    : ""
+              }
+            />
+          ) : defaultPaymentTerms === null ? (
             <View>
               <Text style={styles.muted}>
                 Set payment terms for this listing. The backend requires listing
@@ -401,6 +479,7 @@ export function AddListingScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Media</Text>
+          {!editListingId ? (
           <View style={styles.mediaRow}>
             <Pressable
               style={[
@@ -448,6 +527,9 @@ export function AddListingScreen() {
               </Text>
             </Pressable>
           </View>
+          ) : (
+            <Text style={styles.mediaNote}>Listing media is read-only while editing.</Text>
+          )}
           {photos.length > 0 ? (
             <View style={styles.mediaGrid}>
               {photos.map((secureUrl, idx) => (
@@ -458,18 +540,20 @@ export function AddListingScreen() {
                     contentFit="cover"
                     accessibilityLabel={`Listing photo ${idx + 1}`}
                   />
-                  <Pressable
-                    style={styles.removeMediaButton}
-                    onPress={() =>
-                      setMediaField("photoUrls", (current) =>
-                        current.filter((_url, i) => i !== idx),
-                      )
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove photo ${idx + 1}`}
-                  >
-                    <Text style={styles.removeMediaText}>×</Text>
-                  </Pressable>
+                  {!editListingId ? (
+                    <Pressable
+                      style={styles.removeMediaButton}
+                      onPress={() =>
+                        setMediaField("photoUrls", (current) =>
+                          current.filter((_url, i) => i !== idx),
+                        )
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove photo ${idx + 1}`}
+                    >
+                      <Text style={styles.removeMediaText}>×</Text>
+                    </Pressable>
+                  ) : null}
                   <Text style={styles.previewName} numberOfLines={1}>
                     Photo {idx + 1}
                   </Text>
@@ -488,14 +572,16 @@ export function AddListingScreen() {
                 </Text>
                 <Text style={styles.mediaNote}>Selected on this device</Text>
               </View>
-              <Pressable
-                style={styles.removeVideoButton}
-                onPress={() => setMediaField("videoUrls", [])}
-                accessibilityRole="button"
-                accessibilityLabel="Remove selected video"
-              >
-                <Text style={styles.removeMediaText}>×</Text>
-              </Pressable>
+              {!editListingId ? (
+                <Pressable
+                  style={styles.removeVideoButton}
+                  onPress={() => setMediaField("videoUrls", [])}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove selected video"
+                >
+                  <Text style={styles.removeMediaText}>×</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           <Text style={styles.mediaNote}>
@@ -530,38 +616,50 @@ export function AddListingScreen() {
               <View style={styles.row}>
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Moisture</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={values.moisture}
-                    onChangeText={(v) => setField("moisture", v)}
-                    placeholder="e.g. 12%"
-                    placeholderTextColor={colors.muted}
-                    autoCorrect={false}
-                  />
+                  {editListingId ? (
+                    <Text style={styles.readOnlyValue}>{values.moisture || "Not provided"}</Text>
+                  ) : (
+                    <TextInput
+                      style={styles.input}
+                      value={values.moisture}
+                      onChangeText={(v) => setField("moisture", v)}
+                      placeholder="e.g. 12%"
+                      placeholderTextColor={colors.muted}
+                      autoCorrect={false}
+                    />
+                  )}
                 </View>
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Color</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={values.color}
-                    onChangeText={(v) => setField("color", v)}
-                    placeholder="e.g. Pila"
-                    placeholderTextColor={colors.muted}
-                    autoCorrect={false}
-                  />
+                  {editListingId ? (
+                    <Text style={styles.readOnlyValue}>{values.color || "Not provided"}</Text>
+                  ) : (
+                    <TextInput
+                      style={styles.input}
+                      value={values.color}
+                      onChangeText={(v) => setField("color", v)}
+                      placeholder="e.g. Pila"
+                      placeholderTextColor={colors.muted}
+                      autoCorrect={false}
+                    />
+                  )}
                 </View>
               </View>
               <View style={styles.row}>
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Size</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={values.size}
-                    onChangeText={(v) => setField("size", v)}
-                    placeholder="optional"
-                    placeholderTextColor={colors.muted}
-                    autoCorrect={false}
-                  />
+                  {editListingId ? (
+                    <Text style={styles.readOnlyValue}>{values.size || "Not provided"}</Text>
+                  ) : (
+                    <TextInput
+                      style={styles.input}
+                      value={values.size}
+                      onChangeText={(v) => setField("size", v)}
+                      placeholder="optional"
+                      placeholderTextColor={colors.muted}
+                      autoCorrect={false}
+                    />
+                  )}
                 </View>
                 <View>
                   <Text style={styles.label}>
@@ -587,8 +685,8 @@ export function AddListingScreen() {
         {success ? <FormStatus kind="success" message={success} /> : null}
 
         <Button
-          title="Publish listing"
-          onPress={submit}
+          title={editListingId ? "Save changes" : "Publish listing"}
+          onPress={handleSubmit}
           loading={isLoading}
           disabled={isPickingMedia || isUploading}
         />
@@ -601,6 +699,12 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
   content: {
     flexGrow: 1,
@@ -656,6 +760,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 16,
     color: colors.text,
+  },
+  readOnlyValue: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 16,
+    color: colors.muted,
   },
   textarea: {
     minHeight: 84,

@@ -396,6 +396,23 @@ function pickOwnerId(obj: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+function pickRelatedId(
+  obj: Record<string, unknown>,
+  flatKeys: string[],
+  nestedKey: string,
+): string | undefined {
+  const flatId = toStringId(
+    flatKeys.map((key) => obj[key]).find((value) => value != null),
+  );
+  if (flatId) return flatId;
+  const nested = obj[nestedKey];
+  if (nested !== null && typeof nested === "object") {
+    const related = nested as Record<string, unknown>;
+    return toStringId(related["id"] ?? related["_id"]) ?? undefined;
+  }
+  return undefined;
+}
+
 /**
  * Coerce one backend listing (`listing.service serializeListing` + `user`
  * include) into the app `Listing` shape. Exact backend fields: `id` (uuid),
@@ -439,14 +456,27 @@ function normalizeListing(
       : undefined;
   const sellerId = pickOwnerId(obj);
   const bags = pickNumber(obj, "quantityBags", "bags");
+  const categoryId = pickRelatedId(obj, ["categoryId", "category_id"], "category");
+  const commodityId = pickRelatedId(
+    obj,
+    ["commodityId", "commodity_id"],
+    "commodity",
+  );
   return {
     id,
+    ...(categoryId ? { categoryId } : {}),
+    ...(commodityId ? { commodityId } : {}),
     category: category as Category,
     item,
     quality: pickString(obj, "quality"),
     weight,
+    weightKg,
     seller,
     price: pickNumber(obj, "price") ?? 0,
+    moisture: pickString(obj, "moisture"),
+    color: pickString(obj, "color"),
+    size: pickString(obj, "size"),
+    notes: pickString(obj, "notes"),
     paymentTerms: pickNumber(obj, "paymentTerms", "payment_terms"),
     priceValidUntil: pickString(obj, "priceValidUntil", "price_valid_until") || null,
     photoUrls: pickStringArray(obj, "photoUrls", "photo_urls"),

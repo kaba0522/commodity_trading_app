@@ -75,7 +75,7 @@ const optionalNonNegativeIntString = (field: string) =>
 /**
  * Seller Add-listing validation — mirrors backend `validateSellListingInput`:
  * categoryId + commodityId UUIDs, quantityBags required, price and weightKg
- * optional, quality one of the backend grades or empty, payment terms as a
+ * optional, quality one of the backend grades, payment terms as a
  * non-negative integer when supplied, and media URL counts within backend limits.
  * Scalar fields stay strings here; the hook converts numbers at the boundary.
  * Media fields are arrays of uploaded Cloudinary URLs.
@@ -86,6 +86,7 @@ export const addListingSchema = z.object({
   quality: z
     .string()
     .trim()
+    .min(1, "Quality is required")
     .refine((v) => v === "" || (QUALITY_GRADES as readonly string[]).includes(v), {
       message: `Quality must be one of: ${QUALITY_GRADES.join(", ")}`,
     }),
@@ -103,9 +104,18 @@ export const addListingSchema = z.object({
 
 export type AddListingSchema = z.infer<typeof addListingSchema>;
 
+/** Fields a seller can change from the listing detail edit action. */
+export const editListingSchema = z.object({
+  quantity: positiveIntString("Quantity"),
+  price: optionalPositiveDecimalString("Price"),
+  notes: z.string().max(500, "Keep notes under 500 characters"),
+});
+
+export type EditListingSchema = z.infer<typeof editListingSchema>;
+
 /**
  * Buyer post-requirement client validation: categoryId, commodityId, and
- * quantity are required; optional listing details can also be supplied.
+ * quality and quantity are required; optional listing details can also be supplied.
  * BUY requirements do not accept a price; sellers and buyers negotiate later.
  */
 export const postRequirementSchema = z.object({
@@ -114,6 +124,7 @@ export const postRequirementSchema = z.object({
   quality: z
     .string()
     .trim()
+    .min(1, "Quality is required")
     .refine((v) => v === "" || (QUALITY_GRADES as readonly string[]).includes(v), {
       message: `Quality must be one of: ${QUALITY_GRADES.join(", ")}`,
     }),

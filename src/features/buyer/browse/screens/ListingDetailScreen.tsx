@@ -1,6 +1,7 @@
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
+import { ListingMedia } from "@/features/shared/listings/components/ListingMedia";
 import { useListingDetail } from "@/features/buyer/browse/hooks/useListingDetail";
 import { priceLabel } from "@/core/utils/format";
 import { colors } from "@/theme/colors";
@@ -130,6 +131,11 @@ export function ListingDetailScreen() {
               </Text>
             </View>
           </View>
+
+          <ListingMedia
+            photoUrls={listing.photoUrls}
+            videoUrls={listing.videoUrls}
+          />
 
           <Pressable
             style={styles.sellerCard}

@@ -80,7 +80,10 @@ export const catalogApi = {
    * Pass `categoryId` to list only commodities in that category.
    */
   async getCommodities(token: string, categoryId?: string): Promise<CatalogCommodity[]> {
-    const raw = await apiFetch<unknown>(apiUrl(COMMODITIES_ENDPOINTS.list(categoryId)), { token });
+    const raw = await apiFetch<unknown>(
+      apiUrl(COMMODITIES_ENDPOINTS.list(categoryId)),
+      { token, logResponse: true },
+    );
     const out: CatalogCommodity[] = [];
     const seen = new Set<string>();
     for (const entry of unwrapList(raw)) {

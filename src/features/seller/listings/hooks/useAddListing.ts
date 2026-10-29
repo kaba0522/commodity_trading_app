@@ -1,10 +1,15 @@
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { listingsApi } from "@/features/seller/listings/api/listingsApi";
-import { addListingSchema } from "@/features/seller/listings/schemas/listingSchemas";
+import {
+  addListingSchema,
+  editListingSchema,
+} from "@/features/seller/listings/schemas/listingSchemas";
 import { useCommodities } from "@/features/seller/listings/hooks/useCommodities";
 import { useCommodityCategories } from "@/features/seller/listings/hooks/useCommodityCategories";
-import { useCallback, useMemo, useState } from "react";
+import { useListingDetail } from "@/features/seller/listings/hooks/useListingDetail";
+import type { CreateListingInput } from "@/features/seller/listings/api/listingsApi";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type AddListingField =
   | "categoryId"
@@ -59,11 +64,11 @@ const INITIAL_VALUES: AddListingValues = {
 };
 
 /**
- * Seller add-listing form: category → commodity (live UUIDs), quality grade,
- * quantity (required), weight/price (optional), then POSTs `side: "SELL"`.
- * `itemName` is never a client input — the backend derives it from the commodity.
+ * Seller listing form: category → commodity (live UUIDs), quality grade,
+ * quantity (required), weight/price (optional), then creates or updates the
+ * listing. `itemName` is derived by the backend from the selected commodity.
  */
-export function useAddListing() {
+export function useAddListing(editListingId?: string) {
   const { runWithAuth, session } = useAuth();
   const defaultPaymentTerms = session?.user.defaultPaymentTerms ?? null;
   const [values, setValues] = useState<AddListingValues>(INITIAL_VALUES);
@@ -71,6 +76,13 @@ export function useAddListing() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const initializedListingId = useRef<string | null>(null);
+  const {
+    listing: listingToEdit,
+    isLoading: editListingLoading,
+    error: editListingError,
+    retry: retryEditListing,
+  } = useListingDetail(editListingId);
 
   const { categories, isLoading: categoriesLoading } = useCommodityCategories();
   const { commodities, isLoading: commoditiesLoading } = useCommodities(
@@ -85,6 +97,37 @@ export function useAddListing() {
     () => new Map(commodities.map((c) => [c.id, c.name] as const)),
     [commodities],
   );
+
+  useEffect(() => {
+    if (
+      !editListingId ||
+      !listingToEdit ||
+      initializedListingId.current === editListingId
+    ) {
+      return;
+    }
+    initializedListingId.current = editListingId;
+    setValues({
+      categoryId: listingToEdit.categoryId ?? "",
+      commodityId: listingToEdit.commodityId ?? "",
+      quality: listingToEdit.quality,
+      quantity: listingToEdit.bags != null ? String(listingToEdit.bags) : "",
+      weightKg:
+        listingToEdit.weightKg != null ? String(listingToEdit.weightKg) : "",
+      price: listingToEdit.price > 0 ? String(listingToEdit.price) : "",
+      moisture: listingToEdit.moisture ?? "",
+      color: listingToEdit.color ?? "",
+      size: listingToEdit.size ?? "",
+      overridePayment: listingToEdit.paymentTerms != null,
+      paymentTerms:
+        listingToEdit.paymentTerms != null
+          ? String(listingToEdit.paymentTerms)
+          : "",
+      notes: listingToEdit.notes ?? "",
+      photoUrls: listingToEdit.photoUrls ?? [],
+      videoUrls: listingToEdit.videoUrls ?? [],
+    });
+  }, [editListingId, listingToEdit]);
 
   const setField = useCallback(
     (field: AddListingField, value: string | boolean) => {
@@ -127,25 +170,31 @@ export function useAddListing() {
     setSuccess(null);
   }, []);
 
-  /** Validates, then POSTs to the real backend. Returns true on publish. */
+  /** Validates, then creates or updates the seller listing. */
   async function submit(): Promise<boolean> {
     setError(null);
     setSuccess(null);
-    const parsed = addListingSchema.safeParse({
-      categoryId: values.categoryId,
-      commodityId: values.commodityId,
-      quality: values.quality,
-      quantity: values.quantity,
-      weightKg: values.weightKg,
-      price: values.price,
-      moisture: values.moisture,
-      color: values.color,
-      size: values.size,
-      paymentTerms: values.paymentTerms,
-      notes: values.notes,
-      photoUrls: values.photoUrls,
-      videoUrls: values.videoUrls,
-    });
+    const parsed = editListingId
+      ? editListingSchema.safeParse({
+          quantity: values.quantity,
+          price: values.price,
+          notes: values.notes,
+        })
+      : addListingSchema.safeParse({
+          categoryId: values.categoryId,
+          commodityId: values.commodityId,
+          quality: values.quality,
+          quantity: values.quantity,
+          weightKg: values.weightKg,
+          price: values.price,
+          moisture: values.moisture,
+          color: values.color,
+          size: values.size,
+          paymentTerms: values.paymentTerms,
+          notes: values.notes,
+          photoUrls: values.photoUrls,
+          videoUrls: values.videoUrls,
+        });
     const nextErrors: AddListingFieldErrors = {};
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -154,7 +203,8 @@ export function useAddListing() {
       }
     }
     const needsListingPaymentTerms =
-      values.overridePayment || defaultPaymentTerms === null;
+      !editListingId &&
+      (values.overridePayment || defaultPaymentTerms === null);
     if (needsListingPaymentTerms && !values.paymentTerms.trim()) {
       nextErrors.paymentTerms =
         "Enter payment terms in days, or set a default in your profile";
@@ -165,41 +215,70 @@ export function useAddListing() {
     }
     setIsLoading(true);
     try {
-      const created = await runWithAuth((token) =>
-        listingsApi.create(
-          {
-            categoryId: values.categoryId.trim(),
-            commodityId: values.commodityId.trim(),
-            quality: values.quality.trim() || null,
-            quantityBags: Number(values.quantity.trim()),
-            weightKg: values.weightKg.trim()
-              ? Number(values.weightKg.trim())
-              : null,
-            price: values.price.trim() ? Number(values.price.trim()) : null,
-            moisture: values.moisture.trim() || null,
-            color: values.color.trim() || null,
-            size: values.size.trim() || null,
-            // Backend `optionalPositiveInt`: days as a number, never free text.
-            paymentTerms: needsListingPaymentTerms
-              ? Number(values.paymentTerms.trim())
-              : null,
-            notes: values.notes.trim() || null,
-            photoUrls: values.photoUrls,
-            videoUrls: values.videoUrls,
-          },
-          token,
-        ),
-      );
+      const input: CreateListingInput = {
+        categoryId: values.categoryId.trim(),
+        commodityId: values.commodityId.trim(),
+        quality: values.quality.trim(),
+        quantityBags: Number(values.quantity.trim()),
+        weightKg: values.weightKg.trim()
+          ? Number(values.weightKg.trim())
+          : null,
+        price: values.price.trim() ? Number(values.price.trim()) : null,
+        moisture: values.moisture.trim() || null,
+        color: values.color.trim() || null,
+        size: values.size.trim() || null,
+        paymentTerms: needsListingPaymentTerms
+          ? Number(values.paymentTerms.trim())
+          : null,
+        notes: values.notes.trim() || null,
+        photoUrls: values.photoUrls,
+        videoUrls: values.videoUrls,
+      };
       setFieldErrors({});
-      setValues(INITIAL_VALUES);
-      setSuccess(
-        created.price != null
-          ? `Listing published: ${created.item} at Rs.${created.price.toLocaleString("en-IN")} per bag.`
-          : `Listing published: ${created.item} (open to offers).`,
-      );
+      if (editListingId) {
+        if (!listingToEdit) {
+          setError("Could not load the listing to compare changes.");
+          return false;
+        }
+        const patch: Partial<CreateListingInput> = {};
+        if (input.quantityBags !== listingToEdit.bags) {
+          patch.quantityBags = input.quantityBags;
+        }
+        if (
+          input.price !== (listingToEdit.price > 0 ? listingToEdit.price : null)
+        ) {
+          patch.price = input.price;
+        }
+        if (input.notes !== (listingToEdit.notes || null)) {
+          patch.notes = input.notes;
+        }
+        if (Object.keys(patch).length > 0) {
+          await runWithAuth((token) =>
+            listingsApi.update(editListingId, patch, token),
+          );
+          setSuccess("Listing details updated.");
+        } else {
+          setSuccess("No changes to save.");
+        }
+      } else {
+        const created = await runWithAuth((token) =>
+          listingsApi.create(input, token),
+        );
+        setValues(INITIAL_VALUES);
+        setSuccess(
+          created.price != null
+            ? `Listing published: ${created.item} at Rs.${created.price.toLocaleString("en-IN")} per bag.`
+            : `Listing published: ${created.item} (open to offers).`,
+        );
+      }
       return true;
     } catch (e) {
-      setError(getFriendlyApiError(e, "Could not publish the listing"));
+      setError(
+        getFriendlyApiError(
+          e,
+          editListingId ? "Could not update the listing" : "Could not publish the listing",
+        ),
+      );
       return false;
     } finally {
       setIsLoading(false);
@@ -214,6 +293,9 @@ export function useAddListing() {
     error,
     success,
     isLoading,
+    editListingLoading,
+    editListingError,
+    retryEditListing,
     submit,
     reset,
     categories,

@@ -394,7 +394,7 @@ export const requirementsApi = {
           ...(params?.status ? { status: params.status } : {}),
         }),
       ),
-      { token },
+      { token, logResponse: true },
     );
     const records = unwrapList(raw);
     const categoryMaps = {

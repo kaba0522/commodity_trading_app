@@ -1,10 +1,16 @@
 import { BackButton } from "@/components/common/BackButton";
+import { ConfirmSheet } from "@/components/common/ConfirmSheet";
 import { Button } from "@/components/ui/Button";
+import { getFriendlyApiError } from "@/core/api/client";
 import { priceLabel } from "@/core/utils/format";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { ListingMedia } from "@/features/shared/listings/components/ListingMedia";
+import { listingsApi } from "@/features/seller/listings/api/listingsApi";
 import { useListingDetail } from "@/features/seller/listings/hooks/useListingDetail";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -37,9 +43,8 @@ function priceExpiryLabel(value: string | null | undefined): string {
 }
 
 /**
- * Seller listing detail (`isDetail` in Seller App.html): price + validity
- * and payment terms from `GET /listings/:id`; photos/video, firm terms and
- * contacts are static until the backend serves them.
+ * Seller listing detail (`isDetail` in Seller App.html): price + validity,
+ * payment terms, and media from `GET /listings/:id`.
  */
 export function ListingDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -47,6 +52,28 @@ export function ListingDetailScreen() {
   const { listing, isLoading, error, retry } = useListingDetail(
     typeof id === "string" ? id : undefined,
   );
+  const { runWithAuth } = useAuth();
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  async function withdrawListing() {
+    if (!listing || isWithdrawing) return;
+    setIsWithdrawing(true);
+    setWithdrawError(null);
+    try {
+      await runWithAuth((token) =>
+        listingsApi.withdraw(String(listing.id), token),
+      );
+      router.back();
+    } catch (cause) {
+      setWithdrawError(
+        getFriendlyApiError(cause, "Could not withdraw this listing"),
+      );
+    } finally {
+      setIsWithdrawing(false);
+    }
+  }
 
   return (
     <ScrollView
@@ -84,6 +111,41 @@ export function ListingDetailScreen() {
             <Text style={styles.muted}>{listing.weight} per bag</Text>
           </View>
 
+          <View style={styles.actionRow}>
+            <View style={styles.actionButton}>
+              <Button
+                title="Edit listing"
+                variant="secondary"
+                onPress={() =>
+                  router.push({
+                    pathname: "/edit-listing/[id]",
+                    params: { id: String(listing.id) },
+                  })
+                }
+              />
+            </View>
+            {listing.status !== "withdrawn" &&
+            listing.status !== "traded" &&
+            listing.status !== "sold_out" ? (
+              <View style={styles.actionButton}>
+                <Button
+                  title="Withdraw"
+                  variant="secondary"
+                  onPress={() => {
+                    setWithdrawError(null);
+                    setShowWithdrawConfirm(true);
+                  }}
+                  loading={isWithdrawing}
+                  disabled={isWithdrawing}
+                />
+              </View>
+            ) : null}
+          </View>
+
+          {withdrawError && !showWithdrawConfirm ? (
+            <Text style={styles.errorText}>{withdrawError}</Text>
+          ) : null}
+
           <View style={styles.priceCard}>
             <Text style={styles.kicker}>Price per bag</Text>
             <Text style={styles.price}>
@@ -96,21 +158,10 @@ export function ListingDetailScreen() {
             </View>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.kicker}>Photos &amp; sample video</Text>
-            <Text style={styles.body}>
-              Buyers see these on the listing — a video sample can stand in for
-              an in-person check.
-            </Text>
-            <View style={styles.mediaRow}>
-              <View style={styles.mediaSlot}>
-                <Text style={styles.mediaText}>Add a photo</Text>
-              </View>
-              <View style={styles.mediaSlot}>
-                <Text style={styles.mediaText}>Add a sample video</Text>
-              </View>
-            </View>
-          </View>
+          <ListingMedia
+            photoUrls={listing.photoUrls}
+            videoUrls={listing.videoUrls}
+          />
 
           <View style={styles.card}>
             <Text style={styles.kicker}>Payment terms</Text>
@@ -138,6 +189,26 @@ export function ListingDetailScreen() {
           </View>
         </>
       )}
+      <ConfirmSheet
+        visible={showWithdrawConfirm}
+        title="Withdraw listing?"
+        message={
+          listing
+            ? `${listing.item} will be taken off the market.`
+            : "This listing will be taken off the market."
+        }
+        confirmTitle="Withdraw"
+        cancelTitle="Keep listing"
+        error={withdrawError}
+        isBusy={isWithdrawing}
+        onConfirm={() => void withdrawListing()}
+        onCancel={() => {
+          if (!isWithdrawing) {
+            setShowWithdrawConfirm(false);
+            setWithdrawError(null);
+          }
+        }}
+      />
     </ScrollView>
   );
 }
@@ -154,6 +225,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.xl,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
   },
   errorText: {
     fontSize: 13.5,
@@ -232,27 +310,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.text,
     opacity: 0.85,
-  },
-  mediaRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  mediaSlot: {
-    flex: 1,
-    height: 110,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: "dashed",
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.sm,
-  },
-  mediaText: {
-    fontSize: 12,
-    color: colors.muted,
-    textAlign: "center",
   },
   contactRow: {
     flexDirection: "row",

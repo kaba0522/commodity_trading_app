@@ -10,13 +10,13 @@ import { spacing } from "@/theme/spacing";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -155,9 +155,19 @@ export function RequirementsBrowseScreen() {
                       <Text style={styles.buyerName} numberOfLines={1}>
                         {row.buyer}
                       </Text>
-                      <Text style={styles.requirementMeta}>
-                        {bagsLabel(row.bags)}
-                      </Text>
+                      <View style={styles.requirementMetaRow}>
+                        {row.quality ? (
+                          <Text
+                            style={styles.requirementMeta}
+                            numberOfLines={1}
+                          >
+                            Quality grade: {row.quality.replace(/_/g, " ")}
+                          </Text>
+                        ) : null}
+                        <Text style={styles.requirementMeta}>
+                          {bagsLabel(row.bags)}
+                        </Text>
+                      </View>
                     </View>
                     <ChevronIcon />
                   </Pressable>
@@ -195,12 +205,25 @@ export function RequirementsBrowseScreen() {
                     accessibilityLabel={`${row.category} ${row.item}, ${bagsLabel(row.bags)}`}
                   >
                     <View style={styles.buyerRequirementInfo}>
-                      <Text style={styles.buyerRequirementTitle} numberOfLines={1}>
+                      <Text
+                        style={styles.buyerRequirementTitle}
+                        numberOfLines={1}
+                      >
                         {row.category} · {row.item}
                       </Text>
-                      <Text style={styles.buyerRequirementMeta}>
-                        {bagsLabel(row.bags)}
-                      </Text>
+                      <View style={styles.requirementMetaRow}>
+                        {row.quality ? (
+                          <Text
+                            style={styles.requirementMeta}
+                            numberOfLines={1}
+                          >
+                            Quality grade: {row.quality.replace(/_/g, " ")}
+                          </Text>
+                        ) : null}
+                        <Text style={styles.requirementMeta}>
+                          {bagsLabel(row.bags)}
+                        </Text>
+                      </View>
                     </View>
                     <ChevronIcon />
                   </Pressable>
@@ -303,6 +326,11 @@ const styles = StyleSheet.create({
   requirementMeta: {
     fontSize: 11,
     color: colors.muted,
+  },
+  requirementMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   buyerRequirementRow: {
     minHeight: 62,

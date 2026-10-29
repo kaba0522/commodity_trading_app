@@ -24,7 +24,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Buyer Post requirement: category → commodity (live backend UUIDs),
- * quantity (required); publishes `side: "BUY"`. Price is agreed in negotiation.
+ * quality grade and quantity (required); publishes `side: "BUY"`.
+ * Price is agreed in negotiation.
  */
 interface PostRequirementScreenProps {
   editId?: string;
@@ -167,7 +168,7 @@ export function PostRequirementScreen({
           )}
           {!isEditing ? (
             <Dropdown
-              label="Quality grade (optional)"
+              label="Quality grade"
               placeholder="Select a quality grade"
               value={selectedQualityLabel}
               options={qualityOptions}

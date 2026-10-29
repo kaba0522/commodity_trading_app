@@ -64,6 +64,7 @@ interface ApiFetchOptions {
   token?: string;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  logResponse?: boolean;
 }
 
 function authHeaders(token?: string): Record<string, string> {
@@ -106,6 +107,9 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
     const data = (await res.json()) as T;
     if (__DEV__) {
       console.log(`[api] OK ${method} ${url}`);
+      if (options.logResponse) {
+        console.log(`[api] RESPONSE ${method} ${url}`, data);
+      }
     }
     return data;
   } finally {

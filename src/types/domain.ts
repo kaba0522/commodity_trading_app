@@ -28,14 +28,21 @@ export type ListingStatus =
 /** Market listing (buyer browse/home). Price is per-bag rupees. */
 export interface Listing {
   id: number | string;
+  categoryId?: string;
+  commodityId?: string;
   category: Category;
   item: string;
   quality: string;
   weight: string;
+  weightKg?: number | null;
   seller: string;
   price: number;
   /** Backend `quantityBags` — how many bags the seller has on offer. */
   bags?: number;
+  moisture?: string;
+  color?: string;
+  size?: string;
+  notes?: string;
   /** Per-listing payment terms in days; copied from the seller's profile on create. */
   paymentTerms?: number | null;
   /** Backend-configured expiry for the current price, serialized as an ISO date. */
