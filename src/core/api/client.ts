@@ -64,7 +64,48 @@ interface ApiFetchOptions {
   token?: string;
   timeoutMs?: number;
   headers?: Record<string, string>;
-  logResponse?: boolean;
+}
+
+const SENSITIVE_RESPONSE_KEY =
+  /token|password|secret|authorization|cookie|otp|phone|mobile|email|address/i;
+
+function redactApiResponse(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactApiResponse);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+        key,
+        SENSITIVE_RESPONSE_KEY.test(key)
+          ? "[REDACTED]"
+          : redactApiResponse(entry),
+      ]),
+    );
+  }
+  return value;
+}
+
+function logApiResponse(method: string, url: string, data: unknown): void {
+  if (__DEV__) {
+    console.log(`[api] RESPONSE ${method} ${url}`, redactApiResponse(data));
+  }
+}
+
+function logApiErrorResponse(
+  status: number,
+  method: string,
+  url: string,
+  raw: string,
+): void {
+  if (!__DEV__ || !raw) return;
+  try {
+    const data: unknown = JSON.parse(raw);
+    console.log(
+      `[api] RESPONSE ${status} ${method} ${url}`,
+      redactApiResponse(data),
+    );
+  } catch {
+    console.log(`[api] RESPONSE ${status} ${method} ${url} [non-JSON body]`);
+  }
 }
 
 function authHeaders(token?: string): Record<string, string> {
@@ -102,14 +143,13 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
       if (__DEV__) {
         console.log(`[api] ${res.status} ${method} ${url}`);
       }
+      logApiErrorResponse(res.status, method, url, raw);
       throw new ApiError(res.status, message);
     }
     const data = (await res.json()) as T;
     if (__DEV__) {
       console.log(`[api] OK ${method} ${url}`);
-      if (options.logResponse) {
-        console.log(`[api] RESPONSE ${method} ${url}`, data);
-      }
+      logApiResponse(method, url, data);
     }
     return data;
   } finally {
@@ -148,11 +188,13 @@ export async function apiUpload<T>(
       if (__DEV__) {
         console.log(`[api] ${res.status} POST ${url}`);
       }
+      logApiErrorResponse(res.status, "POST", url, raw);
       throw new ApiError(res.status, extractErrorMessage(raw, res.status));
     }
     const data = (await res.json()) as T;
     if (__DEV__) {
       console.log(`[api] OK POST ${url}`);
+      logApiResponse("POST", url, data);
     }
     return data;
   } finally {

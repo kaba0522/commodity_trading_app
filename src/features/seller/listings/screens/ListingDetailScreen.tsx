@@ -1,32 +1,31 @@
 import { BackButton } from "@/components/common/BackButton";
 import { ConfirmSheet } from "@/components/common/ConfirmSheet";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { Button } from "@/components/ui/Button";
 import { getFriendlyApiError } from "@/core/api/client";
 import { priceLabel } from "@/core/utils/format";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ListingMedia } from "@/features/shared/listings/components/ListingMedia";
-import { listingsApi } from "@/features/seller/listings/api/listingsApi";
+import { RateEditSheet } from "@/features/seller/listings/components/RateEditSheet";
+import {
+  isActiveListing,
+  listingsApi,
+} from "@/features/seller/listings/api/listingsApi";
 import { useListingDetail } from "@/features/seller/listings/hooks/useListingDetail";
+import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const FIRM_TERMS =
-  "Goods must be outward within two days of order confirmation. Program received only before 5:00 PM. No tempo loading after 10 PM. Prices are subject to market conditions.";
-const CONTACTS = [
-  { name: "Ratan", phone: "98108 71966" },
-  { name: "Sanjay", phone: "76658 99003" },
-  { name: "Naveen", phone: "89502 78270" },
-];
 
 function priceExpiryLabel(value: string | null | undefined): string {
   if (!value) return "No active price expiry";
@@ -42,6 +41,25 @@ function priceExpiryLabel(value: string | null | undefined): string {
   return `Valid until ${formatted}`;
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+function paymentTermsLabel(
+  listingTerms: number | null | undefined,
+  defaultTerms: number | null | undefined,
+): string {
+  const terms = listingTerms ?? defaultTerms;
+  return terms !== null && terms !== undefined
+    ? `${terms} days`
+    : "Payment terms not set";
+}
+
 /**
  * Seller listing detail (`isDetail` in Seller App.html): price + validity,
  * payment terms, and media from `GET /listings/:id`.
@@ -52,10 +70,18 @@ export function ListingDetailScreen() {
   const { listing, isLoading, error, retry } = useListingDetail(
     typeof id === "string" ? id : undefined,
   );
-  const { runWithAuth } = useAuth();
+  const { runWithAuth, session } = useAuth();
+  const {
+    profile,
+    isLoading: isProfileLoading,
+    error: profileError,
+  } = useMyProfile();
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [showRateEditor, setShowRateEditor] = useState(false);
+  const [isSavingRate, setIsSavingRate] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
 
   async function withdrawListing() {
     if (!listing || isWithdrawing) return;
@@ -75,6 +101,24 @@ export function ListingDetailScreen() {
     }
   }
 
+  async function saveListingRate(price: number): Promise<boolean> {
+    if (!listing || isSavingRate) return false;
+    setIsSavingRate(true);
+    setRateError(null);
+    try {
+      await runWithAuth((token) =>
+        listingsApi.update(String(listing.id), { price }, token),
+      );
+      await retry();
+      return true;
+    } catch (cause) {
+      setRateError(getFriendlyApiError(cause, "Could not save the rate"));
+      return false;
+    } finally {
+      setIsSavingRate(false);
+    }
+  }
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -82,10 +126,58 @@ export function ListingDetailScreen() {
         { paddingTop: insets.top + spacing.md },
       ]}
     >
-      <BackButton
-        accessibilityLabel="Back to today's listings"
-        fallback="/add-listing"
-      />
+      <View style={styles.topRow}>
+        <BackButton
+          accessibilityLabel="Back to today's listings"
+          fallback="/add-listing"
+        />
+        {listing ? (
+          <View style={styles.actionRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.topAction,
+                styles.editAction,
+                pressed && styles.actionPressed,
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/edit-listing/[id]",
+                  params: { id: String(listing.id) },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Edit listing"
+            >
+              <Text style={styles.editActionText}>Edit Listing</Text>
+            </Pressable>
+            {listing.status !== "withdrawn" &&
+            listing.status !== "traded" &&
+            listing.status !== "sold_out" ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.topAction,
+                  styles.withdrawAction,
+                  pressed && !isWithdrawing && styles.actionPressed,
+                  isWithdrawing && styles.busyAction,
+                ]}
+                onPress={() => {
+                  setWithdrawError(null);
+                  setShowWithdrawConfirm(true);
+                }}
+                disabled={isWithdrawing}
+                accessibilityRole="button"
+                accessibilityLabel="Withdraw listing"
+              >
+                {isWithdrawing ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Text style={styles.withdrawActionText}>Withdraw</Text>
+                )}
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
 
       {isLoading ? (
         <View style={styles.center}>
@@ -101,45 +193,42 @@ export function ListingDetailScreen() {
         </View>
       ) : (
         <>
-          <View>
-            <View style={styles.tagRow}>
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{listing.category}</Text>
+          <View style={styles.productHeader}>
+            <Text style={styles.category}>{listing.category}</Text>
+            <View style={styles.productTitleRow}>
+              <Text style={styles.title}>
+                {listing.quality
+                  ? `${listing.item} · ${listing.quality}`
+                  : listing.item}
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isActiveListing(listing)
+                    ? styles.liveBadge
+                    : styles.inactiveBadge,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    isActiveListing(listing)
+                      ? styles.liveText
+                      : styles.inactiveText,
+                  ]}
+                >
+                  {listing.status === "withdrawn"
+                    ? "Withdrawn"
+                    : listing.status === "traded"
+                      ? "Traded"
+                      : listing.status === "sold_out"
+                        ? "Sold out"
+                        : isActiveListing(listing)
+                          ? "Live"
+                          : "Needs price"}
+                </Text>
               </View>
             </View>
-            <Text style={styles.title}>{listing.item}</Text>
-            <Text style={styles.muted}>{listing.weight} per bag</Text>
-          </View>
-
-          <View style={styles.actionRow}>
-            <View style={styles.actionButton}>
-              <Button
-                title="Edit listing"
-                variant="secondary"
-                onPress={() =>
-                  router.push({
-                    pathname: "/edit-listing/[id]",
-                    params: { id: String(listing.id) },
-                  })
-                }
-              />
-            </View>
-            {listing.status !== "withdrawn" &&
-            listing.status !== "traded" &&
-            listing.status !== "sold_out" ? (
-              <View style={styles.actionButton}>
-                <Button
-                  title="Withdraw"
-                  variant="secondary"
-                  onPress={() => {
-                    setWithdrawError(null);
-                    setShowWithdrawConfirm(true);
-                  }}
-                  loading={isWithdrawing}
-                  disabled={isWithdrawing}
-                />
-              </View>
-            ) : null}
           </View>
 
           {withdrawError && !showWithdrawConfirm ? (
@@ -147,46 +236,73 @@ export function ListingDetailScreen() {
           ) : null}
 
           <View style={styles.priceCard}>
-            <Text style={styles.kicker}>Price per bag</Text>
+            <View style={styles.priceHeader}>
+              <Text style={styles.kicker}>Price per bag</Text>
+              <Pressable
+                onPress={() => {
+                  setRateError(null);
+                  setShowRateEditor(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Edit listing price"
+                hitSlop={8}
+              >
+                <Text style={styles.priceEdit}>Edit</Text>
+              </Pressable>
+            </View>
             <Text style={styles.price}>
               {listing.price > 0 ? priceLabel(listing.price) : "N/A"}
             </Text>
-            <View style={styles.validTag}>
-              <Text style={styles.validTagText}>
+            {listing.priceValidUntil ? (
+              <Text style={styles.expiryText}>
                 {priceExpiryLabel(listing.priceValidUntil)}
               </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.kicker}>Listing details</Text>
+            <DetailRow
+              label="Payment terms"
+              value={paymentTermsLabel(
+                listing.paymentTerms,
+                session?.user.defaultPaymentTerms,
+              )}
+            />
+            <DetailRow
+              label="Quantity"
+              value={
+                listing.bags !== undefined
+                  ? `${listing.bags} ${listing.bags === 1 ? "bag" : "bags"}`
+                  : "Not provided"
+              }
+            />
+            <DetailRow
+              label="Weight per bag"
+              value={listing.weight || "Not provided"}
+            />
+            <View style={styles.termsBlock}>
+              <Text style={styles.detailLabel}>Terms of service</Text>
+              {isProfileLoading && !profile ? (
+                <Text style={styles.body}>Loading firm terms…</Text>
+              ) : profileError && !profile ? (
+                <FormStatus kind="error" message={profileError} />
+              ) : (
+                <Text style={styles.body}>
+                  {profile?.firmNotes?.trim() ||
+                    session?.user.firmNotes?.trim() ||
+                    "No firm terms have been added."}
+                </Text>
+              )}
             </View>
           </View>
 
           <ListingMedia
             photoUrls={listing.photoUrls}
             videoUrls={listing.videoUrls}
+            title="Photos & sample video"
+            subtitle=""
           />
-
-          <View style={styles.card}>
-            <Text style={styles.kicker}>Payment terms</Text>
-            <Text style={styles.body}>
-              {listing.paymentTerms !== null &&
-              listing.paymentTerms !== undefined
-                ? `${listing.paymentTerms} days`
-                : "Not provided"}
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.kicker}>Terms of Service</Text>
-            <Text style={styles.body}>{FIRM_TERMS}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.kicker}>Contacts</Text>
-            {CONTACTS.map((c) => (
-              <View key={c.name} style={styles.contactRow}>
-                <Text style={styles.contactName}>{c.name}</Text>
-                <Text style={styles.muted}>{c.phone}</Text>
-              </View>
-            ))}
-          </View>
         </>
       )}
       <ConfirmSheet
@@ -209,6 +325,23 @@ export function ListingDetailScreen() {
           }
         }}
       />
+      {listing ? (
+        <RateEditSheet
+          key={`${listing.id}-${listing.price}-${showRateEditor}`}
+          visible={showRateEditor}
+          category={listing.category}
+          weight={listing.weight}
+          item={listing.item}
+          price={listing.price > 0 ? listing.price : null}
+          saving={isSavingRate}
+          error={rateError}
+          onClose={() => {
+            setShowRateEditor(false);
+            setRateError(null);
+          }}
+          onSave={saveListingRate}
+        />
+      ) : null}
     </ScrollView>
   );
 }
@@ -226,12 +359,46 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xl,
   },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+  },
   actionRow: {
     flexDirection: "row",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs,
   },
-  actionButton: {
-    flex: 1,
+  topAction: {
+    width: 88,
+    height: 36,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editAction: {
+    backgroundColor: colors.primary,
+  },
+  withdrawAction: {
+    backgroundColor: colors.danger,
+  },
+  editActionText: {
+    color: colors.onPrimary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  withdrawActionText: {
+    color: colors.onPrimary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  actionPressed: {
+    opacity: 0.75,
+  },
+  busyAction: {
+    opacity: 0.7,
   },
   errorText: {
     fontSize: 13.5,
@@ -242,83 +409,112 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
   },
-  tagRow: {
+  productHeader: {
+    gap: spacing.xs,
+  },
+  category: {
+    fontSize: 14,
+    color: colors.muted,
+  },
+  productTitleRow: {
     flexDirection: "row",
-    marginBottom: spacing.sm,
+    alignItems: "center",
+    gap: spacing.sm,
+    flexWrap: "wrap",
   },
-  tag: {
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  statusBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
-  tagText: {
-    fontSize: 12,
+  liveBadge: {
+    backgroundColor: colors.successBg,
+  },
+  inactiveBadge: {
+    backgroundColor: colors.surface,
+  },
+  statusText: {
+    fontSize: 10,
     fontWeight: "700",
-    color: colors.onPrimary,
+  },
+  liveText: {
+    color: colors.success,
+  },
+  inactiveText: {
+    color: colors.muted,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "800",
     color: colors.text,
-    marginBottom: 2,
   },
   priceCard: {
-    alignItems: "flex-start",
     gap: spacing.xs,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    padding: spacing.md,
+    borderRadius: 14,
+    padding: spacing.lg,
+    minHeight: 105,
   },
-  kicker: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    color: colors.muted,
-  },
-  price: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  validTag: {
-    backgroundColor: colors.accent2Tint,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  validTagText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.tagSolid,
-  },
-  card: {
-    gap: spacing.sm,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: spacing.md,
-  },
-  body: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: colors.text,
-    opacity: 0.85,
-  },
-  contactRow: {
+  priceHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 2,
   },
-  contactName: {
-    fontSize: 14,
+  priceEdit: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  kicker: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  price: {
+    fontSize: 27,
+    fontWeight: "800",
     color: colors.text,
+  },
+  expiryText: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  card: {
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: spacing.lg,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  detailLabel: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  detailValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text,
+    textAlign: "right",
+  },
+  termsBlock: {
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  body: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.text,
+    opacity: 0.85,
   },
 });

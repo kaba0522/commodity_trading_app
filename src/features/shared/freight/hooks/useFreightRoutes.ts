@@ -43,6 +43,7 @@ export function useFreightRoutes() {
   const [canLoadMore, setCanLoadMore] = useState(false);
   const cursor = useRef<SearchCursor>({});
   const requestId = useRef(0);
+  const loadMoreInFlight = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(search.trim()), 300);
@@ -52,6 +53,7 @@ export function useFreightRoutes() {
   const loadFirstPage = useCallback(async () => {
     const currentRequest = ++requestId.current;
     cursor.current = {};
+    loadMoreInFlight.current = false;
     setRoutes([]);
     setIsLoading(true);
     setIsLoadingMore(false);
@@ -104,9 +106,17 @@ export function useFreightRoutes() {
   }, [loadFirstPage]);
 
   const loadMore = useCallback(async () => {
-    if (isLoading || isLoadingMore || !canLoadMore) return;
+    if (
+      isLoading ||
+      isLoadingMore ||
+      loadMoreInFlight.current ||
+      !canLoadMore
+    ) {
+      return;
+    }
     const currentRequest = requestId.current;
     const previous = cursor.current;
+    loadMoreInFlight.current = true;
     setIsLoadingMore(true);
     setError(null);
 
@@ -177,7 +187,10 @@ export function useFreightRoutes() {
         setError(getFriendlyApiError(cause, "Could not load more freight rates."));
       }
     } finally {
-      if (currentRequest === requestId.current) setIsLoadingMore(false);
+      if (currentRequest === requestId.current) {
+        loadMoreInFlight.current = false;
+        setIsLoadingMore(false);
+      }
     }
   }, [canLoadMore, isLoading, isLoadingMore, query, runWithAuth]);
 

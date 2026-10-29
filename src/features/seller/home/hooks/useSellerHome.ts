@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useFocusEffect } from "expo-router";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { listingsApi, isActiveListing } from "@/features/seller/listings/api/listingsApi";
+import {
+  isActiveListing,
+  listingsApi,
+} from "@/features/seller/listings/api/listingsApi";
 import type { Listing } from "@/types/domain";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface HomeRow {
   id: string;
@@ -37,17 +40,6 @@ function toHomeRow(l: Listing): HomeRow {
   };
 }
 
-/** Human countdown to the next 2:00 AM price reset (prototype `expiryLabel`). */
-function timeUntil2AM(now = new Date()): string {
-  const reset = new Date(now);
-  reset.setHours(2, 0, 0, 0);
-  if (reset.getTime() <= now.getTime()) reset.setDate(reset.getDate() + 1);
-  const mins = Math.max(1, Math.round((reset.getTime() - now.getTime()) / 60000));
-  const hours = Math.floor(mins / 60);
-  const rest = mins % 60;
-  return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
-}
-
 /**
  * Seller home data (Seller App.html `isHome` → "My Listings"): the logged-in
  * seller's own listings via `GET /listings?side=SELL&status=active,price_expired,na`
@@ -58,6 +50,8 @@ function timeUntil2AM(now = new Date()): string {
 export function useSellerHome() {
   const { runWithAuth } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
+  const [priceExpiryTime, setPriceExpiryTime] = useState<string | null>(null);
+  const [priceExpiryError, setPriceExpiryError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -77,6 +71,19 @@ export function useSellerHome() {
       setError(getFriendlyApiError(e, "Could not load today's listings"));
     } finally {
       setIsLoading(false);
+    }
+  }, [runWithAuth]);
+
+  const loadPriceExpiryTime = useCallback(async () => {
+    setPriceExpiryError(null);
+    try {
+      setPriceExpiryTime(
+        await runWithAuth((token) => listingsApi.getPriceExpiryTime(token)),
+      );
+    } catch (e) {
+      setPriceExpiryError(
+        getFriendlyApiError(e, "Could not load the price expiry time"),
+      );
     }
   }, [runWithAuth]);
 
@@ -102,7 +109,8 @@ export function useSellerHome() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+      loadPriceExpiryTime();
+    }, [load, loadPriceExpiryTime]),
   );
 
   const rows = useMemo(() => listings.map(toHomeRow), [listings]);
@@ -115,9 +123,20 @@ export function useSellerHome() {
   // Every listing price-expired (e.g. after the 2 AM reset): rows kept,
   // all awaiting fresh prices.
   const expired = rows.length > 0 && liveCount === 0;
-  const expiryLabel = expired
-    ? "Expired at 2 AM"
-    : `Prices expire in ${timeUntil2AM()}`;
+  const formattedExpiryTime = priceExpiryTime
+    ? (() => {
+        const [hour, minute] = priceExpiryTime.split(":").map(Number);
+        const period = hour >= 12 ? "PM" : "AM";
+        return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${period}`;
+      })()
+    : null;
+  const expiryLabel = priceExpiryError
+    ? "Expiry time unavailable"
+    : !formattedExpiryTime
+      ? "Loading expiry time…"
+      : expired
+        ? `Expired at ${formattedExpiryTime}`
+        : `Rates expire every day at ${formattedExpiryTime}`;
 
   /** Save today's rate for one listing. Resolves true when the PATCH succeeded. */
   const savePrice = useCallback(
@@ -125,9 +144,7 @@ export function useSellerHome() {
       setSavingId(id);
       setSaveError(null);
       try {
-        await runWithAuth((token) =>
-          listingsApi.update(id, { price }, token),
-        );
+        await runWithAuth((token) => listingsApi.update(id, { price }, token));
         setListings((prev) =>
           prev.map((l) =>
             String(l.id) === id

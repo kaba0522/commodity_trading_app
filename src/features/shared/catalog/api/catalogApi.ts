@@ -82,7 +82,7 @@ export const catalogApi = {
   async getCommodities(token: string, categoryId?: string): Promise<CatalogCommodity[]> {
     const raw = await apiFetch<unknown>(
       apiUrl(COMMODITIES_ENDPOINTS.list(categoryId)),
-      { token, logResponse: true },
+      { token },
     );
     const out: CatalogCommodity[] = [];
     const seen = new Set<string>();

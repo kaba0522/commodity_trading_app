@@ -88,9 +88,7 @@ export function AddListingScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const editListingId = typeof id === "string" ? id : undefined;
-  const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(
-    Boolean(editListingId),
-  );
+  const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
   const [isPickingMedia, setIsPickingMedia] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -617,7 +615,9 @@ export function AddListingScreen() {
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Moisture</Text>
                   {editListingId ? (
-                    <Text style={styles.readOnlyValue}>{values.moisture || "Not provided"}</Text>
+                    <Text style={styles.readOnlyValue}>
+                      {values.moisture || "Not provided"}
+                    </Text>
                   ) : (
                     <TextInput
                       style={styles.input}
@@ -632,7 +632,9 @@ export function AddListingScreen() {
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Color</Text>
                   {editListingId ? (
-                    <Text style={styles.readOnlyValue}>{values.color || "Not provided"}</Text>
+                    <Text style={styles.readOnlyValue}>
+                      {values.color || "Not provided"}
+                    </Text>
                   ) : (
                     <TextInput
                       style={styles.input}
@@ -649,7 +651,9 @@ export function AddListingScreen() {
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Size</Text>
                   {editListingId ? (
-                    <Text style={styles.readOnlyValue}>{values.size || "Not provided"}</Text>
+                    <Text style={styles.readOnlyValue}>
+                      {values.size || "Not provided"}
+                    </Text>
                   ) : (
                     <TextInput
                       style={styles.input}
@@ -661,21 +665,25 @@ export function AddListingScreen() {
                     />
                   )}
                 </View>
-                <View>
-                  <Text style={styles.label}>
-                    Notes <Text style={styles.optionalTag}>optional</Text>
-                  </Text>
-                  <TextInput
-                    style={[styles.input, styles.textarea]}
-                    value={values.notes}
-                    onChangeText={(v) => setField("notes", v)}
-                    placeholder="Anything else buyers should know"
-                    placeholderTextColor={colors.muted}
-                    multiline
-                    numberOfLines={3}
-                    textAlignVertical="top"
-                  />
-                </View>
+                <View style={styles.flex1} />
+              </View>
+              <View>
+                <Text style={styles.label}>
+                  Notes <Text style={styles.optionalTag}>optional</Text>
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.textarea]}
+                  value={values.notes}
+                  onChangeText={(v) => setField("notes", v)}
+                  placeholder="Anything else buyers should know"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                {fieldErrors.notes ? (
+                  <Text style={styles.fieldError}>{fieldErrors.notes}</Text>
+                ) : null}
               </View>
             </View>
           ) : null}

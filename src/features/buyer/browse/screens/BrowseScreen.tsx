@@ -95,7 +95,7 @@ export function BrowseScreen() {
       <View style={styles.header}>
         <View style={styles.titleBlock}>
           {/* <Text style={styles.eyebrow}>Buyer view</Text> */}
-          <Text style={styles.title}>Today&apos;s market</Text>
+          <Text style={styles.title}>Today&apos;s Rates</Text>
         </View>
       </View>
       <ModeToggle
@@ -169,11 +169,12 @@ export function BrowseScreen() {
                       </Text>
                     </View>
                     <View style={styles.commodityPrice}>
-                      <Text style={styles.commodityPriceText} numberOfLines={1}>
+                      <Text style={styles.sellerListingPrice} numberOfLines={1}>
                         {row.priceText}
                       </Text>
-                      <Text style={styles.commodityPriceCaption}>per bag</Text>
+                      {/* <Text style={styles.commodityPriceCaption}>per bag</Text> */}
                     </View>
+                    <ChevronIcon />
                   </Pressable>
                 ))}
               </View>
@@ -217,9 +218,10 @@ export function BrowseScreen() {
                             style={styles.sellerListingTitle}
                             numberOfLines={1}
                           >
-                            {row.category} · {row.item} · {row.qualityText}
+                            {row.category} · {row.item}
                           </Text>
                           <Text style={styles.sellerListingMeta}>
+                            {row.qualityText} ·{" "}
                             {row.bags != null ? `${row.bags} bags` : row.weight}
                           </Text>
                         </View>

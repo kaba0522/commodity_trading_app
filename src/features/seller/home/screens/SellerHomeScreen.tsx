@@ -1,20 +1,21 @@
 import { Button } from "@/components/ui/Button";
-import { useSellerHome, type HomeFilter, type HomeRow } from "@/features/seller/home/hooks/useSellerHome";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
+import {
+  useSellerHome,
+  type HomeFilter,
+  type HomeRow,
+} from "@/features/seller/home/hooks/useSellerHome";
+import { RateEditSheet } from "@/features/seller/listings/components/RateEditSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,7 +34,6 @@ export function SellerHomeScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<HomeFilter>(null);
   const [rateTarget, setRateTarget] = useState<HomeRow | null>(null);
-  const [draft, setDraft] = useState("");
   const {
     rows,
     liveCount,
@@ -52,7 +52,8 @@ export function SellerHomeScreen() {
   } = useSellerHome();
 
   // Prototype `homeFilter`: a "needs" filter that just became empty clears itself.
-  const activeFilter: HomeFilter = needsCount === 0 && filter === "needs" ? null : filter;
+  const activeFilter: HomeFilter =
+    needsCount === 0 && filter === "needs" ? null : filter;
   const visibleRows = useMemo(
     () =>
       activeFilter === "live"
@@ -83,29 +84,19 @@ export function SellerHomeScreen() {
   function openRateSheet(row: HomeRow) {
     clearSaveError();
     setRateTarget(row);
-    setDraft(row.price !== null ? String(row.price) : "");
   }
 
   function closeRateSheet() {
     setRateTarget(null);
-    setDraft("");
     clearSaveError();
   }
 
-  async function handleSaveRate() {
-    if (!rateTarget) return;
-    const value = Number(draft);
-    if (!Number.isFinite(value) || value <= 0) return;
-    const ok = await savePrice(rateTarget.id, value);
-    if (ok) {
-      setRateTarget(null);
-      setDraft("");
-    }
+  async function handleSaveRate(price: number): Promise<boolean> {
+    if (!rateTarget) return false;
+    const saved = await savePrice(rateTarget.id, price);
+    if (saved) setRateTarget(null);
+    return saved;
   }
-
-  const rateValue = Number(draft);
-  const saveDisabled =
-    !draft.trim() || !Number.isFinite(rateValue) || rateValue <= 0 || savingId !== null;
 
   return (
     <View style={styles.screen}>
@@ -121,16 +112,10 @@ export function SellerHomeScreen() {
               My Listings
             </Text>
             <View
-              style={[
-                styles.tag,
-                expired ? styles.tagExpired : styles.tagLive,
-              ]}
+              style={[styles.tag, expired ? styles.tagExpired : styles.tagLive]}
             >
               <Text
-                style={[
-                  styles.tagText,
-                  expired ? styles.tagTextExpired : null,
-                ]}
+                style={[styles.tagText, expired ? styles.tagTextExpired : null]}
               >
                 {expiryLabel}
               </Text>
@@ -171,9 +156,7 @@ export function SellerHomeScreen() {
               styles.filterCard,
               activeFilter === "live" && styles.filterCardLive,
             ]}
-            onPress={() =>
-              setFilter((f) => (f === "live" ? null : "live"))
-            }
+            onPress={() => setFilter((f) => (f === "live" ? null : "live"))}
             accessibilityRole="button"
             accessibilityState={{ selected: activeFilter === "live" }}
             accessibilityLabel={`Show live listings, ${liveCount}`}
@@ -203,9 +186,7 @@ export function SellerHomeScreen() {
               allPriced && styles.filterCardAllPriced,
               activeFilter === "needs" && styles.filterCardNeedsOn,
             ]}
-            onPress={() =>
-              setFilter((f) => (f === "needs" ? null : "needs"))
-            }
+            onPress={() => setFilter((f) => (f === "needs" ? null : "needs"))}
             disabled={allPriced}
             accessibilityRole="button"
             accessibilityState={{ selected: activeFilter === "needs" }}
@@ -294,7 +275,9 @@ export function SellerHomeScreen() {
                             row.price === null && styles.priceNeeds,
                           ]}
                         >
-                          {row.price === null ? "Add Rate" : priceLabel(row.price)}
+                          {row.price === null
+                            ? "Add Rate"
+                            : priceLabel(row.price)}
                         </Text>
                         {row.price === null ? (
                           <Text style={styles.priceHint}>to Make it Live</Text>
@@ -319,7 +302,7 @@ export function SellerHomeScreen() {
           </>
         )}
 
-        <View style={styles.moreRow}>
+        {/* <View style={styles.moreRow}>
           <Pressable
             onPress={() => router.push("/scan")}
             hitSlop={8}
@@ -336,7 +319,7 @@ export function SellerHomeScreen() {
           >
             <Text style={styles.moreLink}>Bulk upload (.xlsx)</Text>
           </Pressable>
-        </View>
+        </View> */}
       </ScrollView>
 
       <Pressable
@@ -348,87 +331,20 @@ export function SellerHomeScreen() {
         <Text style={styles.fabPlus}>+</Text>
       </Pressable>
 
-      <Modal
-        visible={rateTarget !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeRateSheet}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable
-            style={styles.backdrop}
-            onPress={closeRateSheet}
-            accessibilityRole="button"
-            accessibilityLabel="Close rate editor"
-          />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <View
-              style={[
-                styles.sheet,
-                { paddingBottom: insets.bottom + spacing.lg },
-              ]}
-            >
-              <View style={styles.sheetHandle} />
-              <View style={styles.sheetHead}>
-                <View style={styles.sheetTitleBlock}>
-                  <Text style={styles.sheetKicker} numberOfLines={1}>
-                    {rateTarget?.category} · {rateTarget?.weight} bag
-                  </Text>
-                  <Text style={styles.sheetTitle} numberOfLines={1}>
-                    {rateTarget?.item}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={closeRateSheet}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel rate edit"
-                >
-                  <Text style={styles.sheetCancel}>Cancel</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.amountBox}>
-                <Text style={styles.currency}>₹</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  value={draft}
-                  onChangeText={(v) => setDraft(v.replace(/[^\d]/g, "").slice(0, 7))}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.muted}
-                  maxLength={7}
-                  autoFocus
-                  accessibilityLabel="Price per bag"
-                />
-                <Text style={styles.perBag}>per bag</Text>
-              </View>
-
-              {saveError ? (
-                <Text style={styles.errorText}>{saveError}</Text>
-              ) : null}
-
-              <Pressable
-                style={[
-                  styles.saveButton,
-                  saveDisabled && styles.saveButtonDisabled,
-                ]}
-                onPress={handleSaveRate}
-                disabled={saveDisabled}
-                accessibilityRole="button"
-                accessibilityLabel="Save rate"
-                accessibilityState={{ disabled: saveDisabled }}
-              >
-                <Text style={styles.saveButtonText}>
-                  {savingId !== null ? "Saving…" : "Save Rate"}
-                </Text>
-              </Pressable>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+      {rateTarget ? (
+        <RateEditSheet
+          key={`${rateTarget.id}-${rateTarget.price}`}
+          visible
+          category={rateTarget.category}
+          weight={rateTarget.weight}
+          item={rateTarget.item}
+          price={rateTarget.price}
+          saving={savingId === rateTarget.id}
+          error={saveError}
+          onClose={closeRateSheet}
+          onSave={handleSaveRate}
+        />
+      ) : null}
     </View>
   );
 }
@@ -716,101 +632,6 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 34,
     marginTop: -2,
-    color: colors.onPrimary,
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: "rgba(32,30,29,0.45)",
-  },
-  sheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 14,
-    paddingHorizontal: 20,
-    gap: 14,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: colors.border,
-    alignSelf: "center",
-  },
-  sheetHead: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  sheetTitleBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sheetKicker: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  sheetCancel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.text,
-    paddingVertical: 6,
-  },
-  amountBox: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-    gap: 6,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    backgroundColor: colors.surface,
-  },
-  currency: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  amountInput: {
-    minWidth: 60,
-    padding: 0,
-    fontSize: 38,
-    fontWeight: "700",
-    textAlign: "center",
-    color: colors.text,
-  },
-  perBag: {
-    fontSize: 14,
-    color: colors.muted,
-  },
-  saveButton: {
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 17,
-    fontWeight: "700",
     color: colors.onPrimary,
   },
 });

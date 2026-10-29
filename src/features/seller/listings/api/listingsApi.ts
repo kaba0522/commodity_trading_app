@@ -3,9 +3,9 @@ import {
   COMMODITIES_ENDPOINTS,
   COMMODITY_CATEGORIES_ENDPOINTS,
   LISTINGS_ENDPOINTS,
-  SETTINGS_ENDPOINTS,
   apiUrl,
 } from "@/core/api/endpoints";
+import { settingsApi } from "@/core/api/settingsApi";
 import type { Category, Listing, ListingStatus } from "@/types/domain";
 
 /**
@@ -488,29 +488,16 @@ function normalizeListing(
 }
 
 async function getNextPriceExpiry(token: string): Promise<string> {
-  let time = "02:00";
+  let time: string;
   try {
-    const raw = await apiFetch<unknown>(
-      apiUrl(SETTINGS_ENDPOINTS.byKey("price_expiry_time")),
-      { token },
-    );
-    const setting = unwrapOne(raw);
-    const value = setting["value"];
-    const configuredTime =
-      value !== null && typeof value === "object"
-        ? (value as Record<string, unknown>)["time"]
-        : undefined;
-    if (
-      typeof configuredTime !== "string" ||
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(configuredTime)
-    ) {
-      throw new ApiError(502, "The server returned an invalid price expiry time.");
-    }
-    time = configuredTime;
+    time = await settingsApi.getPriceExpiryTime(token);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    if (error instanceof ApiError && error.status === 404) {
+      time = "02:00";
+    } else {
+      throw error;
+    }
   }
-
   const [hours, minutes] = time.split(":").map(Number);
   const now = new Date();
   const istNow = new Date(now.getTime() + 330 * 60 * 1000);
@@ -552,6 +539,9 @@ export function isActiveListing(l: Pick<Listing, "status" | "price">): boolean {
 }
 
 export const listingsApi = {
+  /** GET `/settings/price_expiry_time` — global daily price cutoff (`HH:mm`). */
+  getPriceExpiryTime: settingsApi.getPriceExpiryTime,
+
   /**
    * Buyer-browse market feed: `GET /listings?side=SELL` (backend default
    * `status=active` is exactly what the market shows). `limit=100` (backend

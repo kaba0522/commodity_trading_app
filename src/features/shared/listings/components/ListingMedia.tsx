@@ -16,6 +16,8 @@ import { spacing } from "@/theme/spacing";
 interface ListingMediaProps {
   photoUrls?: string[];
   videoUrls?: string[];
+  title?: string;
+  subtitle?: string;
 }
 
 function ListingVideo({ uri }: { uri: string }) {
@@ -35,6 +37,8 @@ function ListingVideo({ uri }: { uri: string }) {
 export function ListingMedia({
   photoUrls = [],
   videoUrls = [],
+  title = "Product media",
+  subtitle = "Photos and sample video",
 }: ListingMediaProps) {
   const { width: screenWidth } = useWindowDimensions();
   const [activePhoto, setActivePhoto] = useState(0);
@@ -50,8 +54,8 @@ export function ListingMedia({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headingGroup}>
-          <Text style={styles.title}>Product media</Text>
-          <Text style={styles.subtitle}>Photos and sample video</Text>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         {photoUrls.length > 0 ? (
           <View style={styles.countBadge}>

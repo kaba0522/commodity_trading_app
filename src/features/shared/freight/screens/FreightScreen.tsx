@@ -1,7 +1,11 @@
 import { Button } from "@/components/ui/Button";
+import { getFriendlyApiError } from "@/core/api/client";
+import { settingsApi } from "@/core/api/settingsApi";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useFreightRoutes } from "@/features/shared/freight/hooks/useFreightRoutes";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { useEffect, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
@@ -25,9 +29,18 @@ function unitLabel(unit: string): string {
   return unit.replace(/[_-]+/g, " ");
 }
 
+function formatTime(time: string): string {
+  const [hour, minute] = time.split(":").map(Number);
+  const period = hour >= 12 ? "PM" : "AM";
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
 /** Shared read-only freight rates for buyer and seller roles. */
 export function FreightScreen() {
   const insets = useSafeAreaInsets();
+  const { runWithAuth } = useAuth();
+  const [priceExpiryTime, setPriceExpiryTime] = useState<string | null>(null);
+  const [priceExpiryError, setPriceExpiryError] = useState<string | null>(null);
   const {
     search,
     setSearch,
@@ -35,10 +48,27 @@ export function FreightScreen() {
     isLoading,
     isLoadingMore,
     error,
-    canLoadMore,
     retry,
     loadMore,
   } = useFreightRoutes();
+
+  useEffect(() => {
+    let active = true;
+    void runWithAuth((token) => settingsApi.getPriceExpiryTime(token))
+      .then((time) => {
+        if (active) setPriceExpiryTime(formatTime(time));
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setPriceExpiryError(
+            getFriendlyApiError(cause, "Could not load the price expiry time."),
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [runWithAuth]);
 
   return (
     <ScrollView
@@ -50,6 +80,16 @@ export function FreightScreen() {
         },
       ]}
       keyboardShouldPersistTaps="handled"
+      onScroll={(event) => {
+        const { contentOffset, contentSize, layoutMeasurement } =
+          event.nativeEvent;
+        const distanceFromBottom =
+          contentSize.height - layoutMeasurement.height - contentOffset.y;
+        if (distanceFromBottom < 300) {
+          void loadMore();
+        }
+      }}
+      scrollEventThrottle={300}
     >
       <View style={styles.header}>
         <View style={styles.titleBlock}>
@@ -58,7 +98,9 @@ export function FreightScreen() {
         </View>
       </View>
       <Text style={styles.subtitle}>
-        Read-only freight prices · rates are updated daily
+        {priceExpiryError
+          ? `Read-only · per quintal · expiry time unavailable: ${priceExpiryError}`
+          : `Read-only · per quintal · updated daily at ${priceExpiryTime ?? "loading…"}`}
       </Text>
 
       <TextInput
@@ -93,8 +135,16 @@ export function FreightScreen() {
             <View style={[styles.row, styles.tableHeader]}>
               <Text style={[styles.cell, styles.heading]}>Origin</Text>
               <Text style={[styles.cell, styles.heading]}>Destination</Text>
-              <Text style={[styles.priceCell, styles.heading]}>Freight</Text>
-              <Text style={[styles.cell, styles.heading]}>Capacity</Text>
+              <Text
+                style={[
+                  styles.priceCell,
+                  styles.heading,
+                  styles.priceHeading,
+                ]}
+              >
+                Freight
+              </Text>
+              {/* <Text style={[styles.cell, styles.heading]}>Capacity</Text> */}
             </View>
             {routes.map((route) => (
               <View key={route.id} style={styles.row}>
@@ -111,21 +161,18 @@ export function FreightScreen() {
                   </Text>
                   <Text style={styles.unit}>{unitLabel(route.unit)}</Text>
                 </View>
-                <Text style={[styles.cell, styles.capacity]}>
+                {/* <Text style={[styles.cell, styles.capacity]}>
                   {route.truckCapacity ?? "—"}
-                </Text>
+                </Text> */}
               </View>
             ))}
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {canLoadMore ? (
-            <Button
-              title={isLoadingMore ? "Loading…" : "Load more routes"}
-              variant="secondary"
-              onPress={loadMore}
-              loading={isLoadingMore}
-              disabled={isLoadingMore}
-            />
+          {isLoadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.muted}>Loading more freight rates…</Text>
+            </View>
           ) : null}
         </>
       )}
@@ -206,6 +253,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: "uppercase",
   },
+  priceHeading: {
+    textAlign: "right",
+  },
   city: {
     color: colors.text,
     fontSize: 12.5,
@@ -240,6 +290,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.xl,
+  },
+  loadingMore: {
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
   },
   muted: {
     color: colors.muted,
