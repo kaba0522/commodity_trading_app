@@ -169,9 +169,15 @@ export function PostRequirementScreen({
           {!isEditing ? (
             <Dropdown
               label="Quality grade"
-              placeholder="Select a quality grade"
+              placeholder={
+                values.categoryId && values.commodityId
+                  ? "Select a quality grade"
+                  : "Select commodity and category first"
+              }
               value={selectedQualityLabel}
-              options={qualityOptions}
+              options={
+                values.categoryId && values.commodityId ? qualityOptions : []
+              }
               onChange={(label) => {
                 const found = QUALITY_GRADES.find(
                   (grade) =>
@@ -250,7 +256,9 @@ export function PostRequirementScreen({
                 inputMode="numeric"
               />
               {fieldErrors.paymentTerms ? (
-                <Text style={styles.fieldError}>{fieldErrors.paymentTerms}</Text>
+                <Text style={styles.fieldError}>
+                  {fieldErrors.paymentTerms}
+                </Text>
               ) : null}
             </View>
           ) : null}
@@ -266,12 +274,13 @@ export function PostRequirementScreen({
         />
         {success ? (
           <Button
-            title={isEditing ? "Back to my requirements" : "View my requirements"}
+            title={
+              isEditing ? "Back to my requirements" : "View my requirements"
+            }
             variant="secondary"
             onPress={() => router.back()}
           />
         ) : null}
-
       </ScrollView>
     </KeyboardAvoidingView>
   );

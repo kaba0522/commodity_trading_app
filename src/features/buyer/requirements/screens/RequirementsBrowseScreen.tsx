@@ -161,11 +161,11 @@ export function RequirementsBrowseScreen() {
                             style={styles.requirementMeta}
                             numberOfLines={1}
                           >
-                            Quality grade: {row.quality.replace(/_/g, " ")}
+                            {row.quality.replace(/_/g, " ")}
                           </Text>
                         ) : null}
                         <Text style={styles.requirementMeta}>
-                          {bagsLabel(row.bags)}
+                        · {bagsLabel(row.bags)}
                         </Text>
                       </View>
                     </View>
@@ -217,11 +217,11 @@ export function RequirementsBrowseScreen() {
                             style={styles.requirementMeta}
                             numberOfLines={1}
                           >
-                            Quality grade: {row.quality.replace(/_/g, " ")}
+                             {row.quality.replace(/_/g, " ")}
                           </Text>
                         ) : null}
                         <Text style={styles.requirementMeta}>
-                          {bagsLabel(row.bags)}
+                          · {bagsLabel(row.bags)}
                         </Text>
                       </View>
                     </View>

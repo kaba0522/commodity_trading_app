@@ -49,9 +49,13 @@ const INITIAL_VALUES: PostRequirementValues = {
  * (required), and optional trade details. BUY requirements do not include price.
  */
 export function usePostRequirement(options: UsePostRequirementOptions = {}) {
-  const { runWithAuth } = useAuth();
+  const { runWithAuth, session } = useAuth();
+  const defaultPaymentTerms = session?.user.defaultPaymentTerms ?? null;
   const [initialValues] = useState<PostRequirementValues>(() => ({
     ...INITIAL_VALUES,
+    ...(!options.editId && defaultPaymentTerms !== null
+      ? { paymentTerms: String(defaultPaymentTerms) }
+      : {}),
     ...options.initialValues,
   }));
   const [values, setValues] = useState<PostRequirementValues>(initialValues);
@@ -160,14 +164,28 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
       const next = { ...prev, [field]: value };
       if (field === "categoryId" && value !== prev.categoryId) {
         next.commodityId = "";
+        next.quality = "";
+      } else if (field === "commodityId" && value !== prev.commodityId) {
+        next.quality = "";
       }
       return next;
     });
     setFieldErrors((prev) => {
-      if (!prev[field] && !(field === "categoryId" && prev["commodityId"])) return prev;
+      if (
+        !prev[field] &&
+        !((field === "categoryId" || field === "commodityId") && prev["quality"]) &&
+        !(field === "categoryId" && prev["commodityId"])
+      ) {
+        return prev;
+      }
       const next = { ...prev };
       delete next[field];
-      if (field === "categoryId") delete next["commodityId"];
+      if (field === "categoryId") {
+        delete next["commodityId"];
+        delete next["quality"];
+      } else if (field === "commodityId") {
+        delete next["quality"];
+      }
       return next;
     });
   }, []);
@@ -258,7 +276,11 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
         ),
       );
       setFieldErrors({});
-      setValues(INITIAL_VALUES);
+      setValues({
+        ...INITIAL_VALUES,
+        paymentTerms:
+          defaultPaymentTerms !== null ? String(defaultPaymentTerms) : "",
+      });
       setSuccess(
         created.targetPrice > 0
           ? `Requirement posted: ${created.item} — ${created.bags} bags at Rs.${created.targetPrice.toLocaleString("en-IN")}.`

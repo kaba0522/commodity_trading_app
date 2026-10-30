@@ -4,7 +4,6 @@ import { useBulkEdit } from "@/features/seller/listings/hooks/useBulkEdit";
 import { priceLabel } from "@/core/utils/format";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -24,12 +23,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  */
 export function BulkEditScreen() {
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<"active" | "expired">("active");
   const {
+    rows,
     activeRows,
     expiredRows,
-    activeCount,
-    expiredCount,
     selected,
     selectedCount,
     selectedActiveCount,
@@ -53,52 +50,14 @@ export function BulkEditScreen() {
     saveError,
     retry,
   } = useBulkEdit();
-  const visibleRows = tab === "active" ? activeRows : expiredRows;
-  const visibleSelectableIds = useMemo(
-    () => visibleRows.map((r) => r.id),
-    [visibleRows],
-  );
+  const visibleRows = [...activeRows, ...expiredRows];
+  const visibleSelectableIds = rows.map((row) => row.id);
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.head}>
         <BackButton fallback="/add-listing" />
         <Text style={styles.title}>Bulk edit prices</Text>
-        <View
-          style={styles.tabs}
-          accessibilityRole="tablist"
-          accessibilityLabel="Listing status tabs"
-        >
-          <Pressable
-            style={[styles.tab, tab === "active" && styles.tabActive]}
-            onPress={() => setTab("active")}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === "active" }}
-            accessibilityLabel={`Active listings, ${activeCount}`}
-          >
-            <Text
-              style={[styles.tabText, tab === "active" && styles.tabTextActive]}
-            >
-              Active ({activeCount})
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, tab === "expired" && styles.tabActive]}
-            onPress={() => setTab("expired")}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === "expired" }}
-            accessibilityLabel={`Expired listings, ${expiredCount}`}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                tab === "expired" && styles.tabTextActive,
-              ]}
-            >
-              Expired ({expiredCount})
-            </Text>
-          </Pressable>
-        </View>
         <View style={styles.selectRow}>
           <View style={styles.selectButtons}>
             <View style={styles.selectFlex}>
@@ -148,7 +107,7 @@ export function BulkEditScreen() {
                       {row.item}
                     </Text>
                     <Text style={styles.muted} numberOfLines={1}>
-                      {row.category} · {row.weight} ·{" "}
+                      {row.category} · {row.weight} · Expired ·{" "}
                       {row.price === null ? "N/A" : priceLabel(row.price)}
                     </Text>
                   </View>
@@ -183,7 +142,7 @@ export function BulkEditScreen() {
                     {row.item}
                   </Text>
                   <Text style={styles.muted} numberOfLines={1}>
-                    {row.category} · {row.weight}
+                    {row.category} · {row.weight} · Active
                   </Text>
                 </View>
                 <Text style={styles.rowPrice}>
@@ -193,16 +152,11 @@ export function BulkEditScreen() {
             );
           })}
           {visibleRows.length === 0 ? (
-            <Text style={styles.note}>
-              {tab === "active"
-                ? "No active listings — everything is expired."
-                : "No expired listings — everything is active."}
-            </Text>
+            <Text style={styles.note}>No listings to edit.</Text>
           ) : (
             <Text style={styles.note}>
-              {tab === "active"
-                ? "Select listings, then apply a price change to all of them."
-                : "Select expired listings, adjust with −50/+50 or type today’s price, then set prices to reactivate them."}
+              Select active listings to adjust prices. Enter a price for
+              expired listings to reactivate them.
             </Text>
           )}
         </ScrollView>
@@ -212,7 +166,7 @@ export function BulkEditScreen() {
         style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}
       >
         {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
-        {tab === "active" ? (
+        {selectedActiveCount > 0 ? (
           <>
             <View style={styles.deltaRow}>
               <View style={styles.selectFlex}>
@@ -251,7 +205,8 @@ export function BulkEditScreen() {
               </View>
             </View>
           </>
-        ) : (
+        ) : null}
+        {selectedExpiredCount > 0 ? (
           <>
             <View style={styles.deltaRow}>
               <View style={styles.selectFlex}>
@@ -302,7 +257,10 @@ export function BulkEditScreen() {
               onPress={applySetMany}
             />
           </>
-        )}
+        ) : null}
+        {selectedCount === 0 ? (
+          <Text style={styles.muted}>Select listings to edit prices.</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -321,31 +279,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "800",
-    color: colors.text,
-  },
-  tabs: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 4,
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    borderRadius: 10,
-    paddingVertical: 9,
-  },
-  tabActive: {
-    backgroundColor: colors.card,
-    boxShadow: "0 1px 2px rgba(46,43,37,0.14)",
-  },
-  tabText: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: colors.muted,
-  },
-  tabTextActive: {
     color: colors.text,
   },
   selectRow: {

@@ -21,7 +21,6 @@ export type AddListingField =
   | "moisture"
   | "color"
   | "size"
-  | "overridePayment"
   | "paymentTerms"
   | "notes"
   | "photoUrls"
@@ -37,7 +36,6 @@ export interface AddListingValues {
   moisture: string;
   color: string;
   size: string;
-  overridePayment: boolean;
   paymentTerms: string;
   notes: string;
   photoUrls: string[];
@@ -56,7 +54,6 @@ const INITIAL_VALUES: AddListingValues = {
   moisture: "",
   color: "",
   size: "",
-  overridePayment: false,
   paymentTerms: "",
   notes: "",
   photoUrls: [],
@@ -71,7 +68,11 @@ const INITIAL_VALUES: AddListingValues = {
 export function useAddListing(editListingId?: string) {
   const { runWithAuth, session } = useAuth();
   const defaultPaymentTerms = session?.user.defaultPaymentTerms ?? null;
-  const [values, setValues] = useState<AddListingValues>(INITIAL_VALUES);
+  const [values, setValues] = useState<AddListingValues>(() => ({
+    ...INITIAL_VALUES,
+    paymentTerms:
+      defaultPaymentTerms !== null ? String(defaultPaymentTerms) : "",
+  }));
   const [fieldErrors, setFieldErrors] = useState<AddListingFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -118,7 +119,6 @@ export function useAddListing(editListingId?: string) {
       moisture: listingToEdit.moisture ?? "",
       color: listingToEdit.color ?? "",
       size: listingToEdit.size ?? "",
-      overridePayment: listingToEdit.paymentTerms != null,
       paymentTerms:
         listingToEdit.paymentTerms != null
           ? String(listingToEdit.paymentTerms)
@@ -164,11 +164,15 @@ export function useAddListing(editListingId?: string) {
   );
 
   const reset = useCallback(() => {
-    setValues(INITIAL_VALUES);
+    setValues({
+      ...INITIAL_VALUES,
+      paymentTerms:
+        defaultPaymentTerms !== null ? String(defaultPaymentTerms) : "",
+    });
     setFieldErrors({});
     setError(null);
     setSuccess(null);
-  }, []);
+  }, [defaultPaymentTerms]);
 
   /** Validates, then creates or updates the seller listing. */
   async function submit(): Promise<boolean> {
@@ -202,12 +206,8 @@ export function useAddListing(editListingId?: string) {
         if (key && !nextErrors[key]) nextErrors[key] = issue.message;
       }
     }
-    const needsListingPaymentTerms =
-      !editListingId &&
-      (values.overridePayment || defaultPaymentTerms === null);
-    if (needsListingPaymentTerms && !values.paymentTerms.trim()) {
-      nextErrors.paymentTerms =
-        "Enter payment terms in days, or set a default in your profile";
+    if (!editListingId && !values.paymentTerms.trim()) {
+      nextErrors.paymentTerms = "Enter payment terms in days";
     }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
@@ -227,7 +227,7 @@ export function useAddListing(editListingId?: string) {
         moisture: values.moisture.trim() || null,
         color: values.color.trim() || null,
         size: values.size.trim() || null,
-        paymentTerms: needsListingPaymentTerms
+        paymentTerms: !editListingId
           ? Number(values.paymentTerms.trim())
           : null,
         notes: values.notes.trim() || null,
@@ -264,7 +264,11 @@ export function useAddListing(editListingId?: string) {
         const created = await runWithAuth((token) =>
           listingsApi.create(input, token),
         );
-        setValues(INITIAL_VALUES);
+        setValues({
+          ...INITIAL_VALUES,
+          paymentTerms:
+            defaultPaymentTerms !== null ? String(defaultPaymentTerms) : "",
+        });
         setSuccess(
           created.price != null
             ? `Listing published: ${created.item} at Rs.${created.price.toLocaleString("en-IN")} per bag.`

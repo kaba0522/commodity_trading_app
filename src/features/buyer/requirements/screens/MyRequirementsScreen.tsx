@@ -1,3 +1,12 @@
+import { ChevronIcon } from "@/components/common/ChevronIcon";
+import { ConfirmSheet } from "@/components/common/ConfirmSheet";
+import { Button } from "@/components/ui/Button";
+import { useMyRequirements } from "@/features/buyer/requirements/hooks/useMyRequirements";
+import { colors } from "@/theme/colors";
+import { spacing } from "@/theme/spacing";
+import { fonts } from "@/theme/typography";
+import type { BuyerRequirement } from "@/types/domain";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -8,15 +17,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ChevronIcon } from "@/components/common/ChevronIcon";
-import { ConfirmSheet } from "@/components/common/ConfirmSheet";
-import { Button } from "@/components/ui/Button";
-import { useMyRequirements } from "@/features/buyer/requirements/hooks/useMyRequirements";
-import type { BuyerRequirement } from "@/types/domain";
-import { colors } from "@/theme/colors";
-import { spacing } from "@/theme/spacing";
-import { fonts } from "@/theme/typography";
 
 /**
  * Buyer's active posted requirements with links to their details and withdraw.
@@ -172,7 +172,7 @@ export function MyRequirementsScreen() {
                           >
                             {req.targetPrice > 0
                               ? `₹${req.targetPrice.toLocaleString("en-IN")}`
-                              : "Open to offers"}
+                              : "View details"}
                           </Text>
                           {req.targetPrice > 0 ? (
                             <Text style={styles.priceUnit}>per bag</Text>
@@ -182,8 +182,15 @@ export function MyRequirementsScreen() {
                       </View>
                     </Pressable>
 
-                    <View style={styles.cardActions}>
-                      <Text style={styles.actionHint}>View requirement</Text>
+                    <View
+                      style={[
+                        styles.cardActions,
+                        req.targetPrice <= 0 && styles.cardActionsEnd,
+                      ]}
+                    >
+                      {req.targetPrice > 0 ? (
+                        <Text style={styles.actionHint}>View requirement</Text>
+                      ) : null}
                       <View style={styles.actionButtons}>
                         <Pressable
                           style={styles.editAction}
@@ -341,7 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   cardContent: {
     flexDirection: "row",
@@ -352,35 +359,35 @@ const styles = StyleSheet.create({
   cardInfo: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: spacing.xs,
   },
   categoryBadge: {
     alignSelf: "flex-start",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.tagBuyerBg,
     borderRadius: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
   categoryText: {
     fontFamily: fonts.bodyBold,
     fontSize: 10,
     fontWeight: "700",
-    color: colors.onPrimary,
+    color: colors.tagBuyerText,
   },
   itemTitle: {
     fontFamily: fonts.heading,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: colors.text,
   },
   quantity: {
     fontFamily: fonts.body,
-    fontSize: 12.5,
-    color: colors.muted,
+    fontSize: 13,
+    color: colors.text,
   },
   details: {
     fontFamily: fonts.body,
-    fontSize: 11,
+    fontSize: 11.5,
     color: colors.muted,
   },
   priceSide: {
@@ -388,7 +395,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: spacing.xs,
   },
   priceBlock: {
     flex: 1,
@@ -397,13 +404,13 @@ const styles = StyleSheet.create({
   },
   price: {
     fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    color: colors.text,
+    color: colors.primaryDark,
     textAlign: "right",
   },
   openPrice: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.primaryDark,
   },
   priceUnit: {
@@ -413,11 +420,11 @@ const styles = StyleSheet.create({
   },
   actionHint: {
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.muted,
   },
   cardActions: {
-    minHeight: 40,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -425,29 +432,37 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingHorizontal: spacing.md,
   },
+  cardActionsEnd: {
+    justifyContent: "flex-end",
+  },
   actionButtons: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   editAction: {
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
   },
   editText: {
     fontFamily: fonts.bodyBold,
     fontSize: 12,
     fontWeight: "600",
-    color: colors.primaryDark,
+    color: colors.onPrimary,
   },
   withdrawAction: {
-    paddingVertical: spacing.sm,
-    paddingLeft: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.danger,
+    borderRadius: 8,
   },
   withdrawText: {
     fontFamily: fonts.bodyBold,
     fontSize: 12,
     fontWeight: "600",
-    color: colors.danger,
+    color: colors.onPrimary,
   },
   withdrawBusy: {
     opacity: 0.6,

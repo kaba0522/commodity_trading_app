@@ -2,15 +2,15 @@ import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { FormStatus } from "@/components/ui/FormStatus";
-import * as ImagePicker from "expo-image-picker";
-import { Image } from "expo-image";
-import { cloudinaryUploadFile } from "@/core/api/cloudinary";
 import { getFriendlyApiError } from "@/core/api/client";
+import { cloudinaryUploadFile } from "@/core/api/cloudinary";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAddListing } from "@/features/seller/listings/hooks/useAddListing";
 import { QUALITY_GRADES } from "@/features/seller/listings/schemas/listingSchemas";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
@@ -31,7 +31,8 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 function mediaExtension(asset: ImagePicker.ImagePickerAsset): string {
-  const fileName = asset.fileName ?? asset.uri.split(/[?#]/, 1)[0].split("/").pop() ?? "";
+  const fileName =
+    asset.fileName ?? asset.uri.split(/[?#]/, 1)[0].split("/").pop() ?? "";
   const extension = fileName.split(".").pop()?.toLowerCase();
   if (extension && extension !== fileName.toLowerCase()) return extension;
   const mimeType = asset.mimeType?.toLowerCase();
@@ -152,7 +153,8 @@ export function AddListingScreen() {
     setMediaError(null);
     setIsPickingMedia(true);
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         setMediaError("Allow photo library access to choose listing photos.");
         return;
@@ -174,7 +176,8 @@ export function AddListingScreen() {
           try {
             const secureUrl = await uploadToCloudinary(asset, "image");
             setMediaField("photoUrls", (current) =>
-              current.includes(secureUrl) || current.length >= MAX_LISTING_PHOTOS
+              current.includes(secureUrl) ||
+              current.length >= MAX_LISTING_PHOTOS
                 ? current
                 : [...current, secureUrl],
             );
@@ -200,7 +203,8 @@ export function AddListingScreen() {
     setMediaError(null);
     setIsPickingMedia(true);
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         setMediaError("Allow photo library access to choose a sample video.");
         return;
@@ -238,7 +242,10 @@ export function AddListingScreen() {
   async function handleSubmit() {
     const saved = await submit();
     if (saved && editListingId) {
-      router.replace({ pathname: "/listing/[id]", params: { id: editListingId } });
+      router.replace({
+        pathname: "/listing/[id]",
+        params: { id: editListingId },
+      });
     }
   }
 
@@ -306,7 +313,11 @@ export function AddListingScreen() {
             <>
               <Dropdown
                 label="Category"
-                placeholder={categoriesLoading ? "Loading categories…" : "Select a category"}
+                placeholder={
+                  categoriesLoading
+                    ? "Loading categories…"
+                    : "Select a category"
+                }
                 value={selectedCategoryName}
                 options={categoryOptions}
                 onChange={(name) => {
@@ -317,7 +328,8 @@ export function AddListingScreen() {
               />
               {!categoriesLoading && categories.length === 0 ? (
                 <Text style={styles.fieldError}>
-                  Could not load categories. Check your connection and reopen this tab.
+                  Could not load categories. Check your connection and reopen
+                  this tab.
                 </Text>
               ) : null}
 
@@ -349,15 +361,23 @@ export function AddListingScreen() {
           <View style={styles.row}>
             <View style={styles.flex1}>
               <Text style={styles.label}>
-                Weight per bag (kg) <Text style={styles.optionalTag}>optional</Text>
+                Weight per bag (kg){" "}
+                <Text style={styles.optionalTag}>optional</Text>
               </Text>
               {editListingId ? (
-                <Text style={styles.readOnlyValue}>{values.weightKg || "Not provided"}</Text>
+                <Text style={styles.readOnlyValue}>
+                  {values.weightKg || "Not provided"}
+                </Text>
               ) : (
                 <TextInput
-                  style={[styles.input, fieldErrors.weightKg ? styles.inputError : null]}
+                  style={[
+                    styles.input,
+                    fieldErrors.weightKg ? styles.inputError : null,
+                  ]}
                   value={values.weightKg}
-                  onChangeText={(v) => setField("weightKg", v.replace(/[^0-9]/g, ""))}
+                  onChangeText={(v) =>
+                    setField("weightKg", v.replace(/[^0-9]/g, ""))
+                  }
                   placeholder="30"
                   placeholderTextColor={colors.muted}
                   keyboardType="number-pad"
@@ -369,12 +389,18 @@ export function AddListingScreen() {
             </View>
             <View style={styles.flex1}>
               <Text style={styles.label}>
-                Price per bag (Rs.) <Text style={styles.optionalTag}>optional</Text>
+                Price per bag (Rs.){" "}
+                <Text style={styles.optionalTag}>optional</Text>
               </Text>
               <TextInput
-                style={[styles.input, fieldErrors.price ? styles.inputError : null]}
+                style={[
+                  styles.input,
+                  fieldErrors.price ? styles.inputError : null,
+                ]}
                 value={values.price}
-                onChangeText={(v) => setField("price", v.replace(/[^0-9.]/g, ""))}
+                onChangeText={(v) =>
+                  setField("price", v.replace(/[^0-9.]/g, ""))
+                }
                 placeholder="Leave blank = open to offers"
                 placeholderTextColor={colors.muted}
                 keyboardType="decimal-pad"
@@ -388,9 +414,14 @@ export function AddListingScreen() {
           <View>
             <Text style={styles.label}>Quantity (bags)</Text>
             <TextInput
-              style={[styles.input, fieldErrors.quantity ? styles.inputError : null]}
+              style={[
+                styles.input,
+                fieldErrors.quantity ? styles.inputError : null,
+              ]}
               value={values.quantity}
-              onChangeText={(v) => setField("quantity", v.replace(/[^0-9]/g, ""))}
+              onChangeText={(v) =>
+                setField("quantity", v.replace(/[^0-9]/g, ""))
+              }
               placeholder="e.g. 40"
               placeholderTextColor={colors.muted}
               keyboardType="number-pad"
@@ -404,22 +435,26 @@ export function AddListingScreen() {
             <ReadOnlyField
               label="Payment terms (days)"
               value={
-                values.overridePayment
+                values.paymentTerms !== ""
                   ? values.paymentTerms
                   : defaultPaymentTerms !== null
                     ? `${defaultPaymentTerms} (firm default)`
                     : ""
               }
             />
-          ) : defaultPaymentTerms === null ? (
+          ) : (
             <View>
-              <Text style={styles.muted}>
-                Set payment terms for this listing. The backend requires listing
-                terms or a seller default in your profile.
-              </Text>
+              {/* <Text style={styles.muted}>
+                {defaultPaymentTerms !== null
+                  ? "Your default payment terms are prefilled. You can change them for this listing."
+                  : "Set payment terms for this listing. The backend requires listing terms or a seller default in your profile."}
+              </Text> */}
               <Text style={styles.label}>Payment terms (days)</Text>
               <TextInput
-                style={[styles.input, fieldErrors.paymentTerms ? styles.inputError : null]}
+                style={[
+                  styles.input,
+                  fieldErrors.paymentTerms ? styles.inputError : null,
+                ]}
                 value={values.paymentTerms}
                 onChangeText={(v) => setField("paymentTerms", v)}
                 placeholder="Payment terms in days (e.g. 15)"
@@ -428,105 +463,68 @@ export function AddListingScreen() {
                 inputMode="numeric"
               />
               {fieldErrors.paymentTerms ? (
-                <Text style={styles.fieldError}>{fieldErrors.paymentTerms}</Text>
+                <Text style={styles.fieldError}>
+                  {fieldErrors.paymentTerms}
+                </Text>
               ) : null}
             </View>
-          ) : (
-            <>
-              <Pressable
-                onPress={() => setField("overridePayment", !values.overridePayment)}
-                style={styles.checkRow}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: values.overridePayment }}
-              >
-                <View
-                  style={[styles.checkbox, values.overridePayment ? styles.checkboxChecked : null]}
-                >
-                  {values.overridePayment ? (
-                    <Text style={styles.checkboxTick}>✓</Text>
-                  ) : null}
-                </View>
-                <Text style={styles.checkLabel}>
-                  Override payment terms for this listing
-                </Text>
-              </Pressable>
-              {values.overridePayment ? (
-                <View>
-                  <Text style={styles.label}>Payment terms (days)</Text>
-                  <TextInput
-                    style={[styles.input, fieldErrors.paymentTerms ? styles.inputError : null]}
-                    value={values.paymentTerms}
-                    onChangeText={(v) => setField("paymentTerms", v)}
-                    placeholder="Payment terms in days (e.g. 15)"
-                    placeholderTextColor={colors.muted}
-                    keyboardType="numeric"
-                    inputMode="numeric"
-                  />
-                  {fieldErrors.paymentTerms ? (
-                    <Text style={styles.fieldError}>{fieldErrors.paymentTerms}</Text>
-                  ) : null}
-                </View>
-              ) : (
-                <Text style={styles.muted}>
-                  Firm default applies: {defaultPaymentTerms} days
-                </Text>
-              )}
-            </>
           )}
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Media</Text>
           {!editListingId ? (
-          <View style={styles.mediaRow}>
-            <Pressable
-              style={[
-                styles.mediaBox,
-                (isPickingMedia || photos.length >= MAX_LISTING_PHOTOS) &&
-                  styles.mediaBoxDisabled,
-              ]}
-              onPress={pickPhotos}
-              disabled={isPickingMedia || photos.length >= MAX_LISTING_PHOTOS}
-              accessibilityRole="button"
-              accessibilityLabel={`Choose listing photos, ${photos.length} of ${MAX_LISTING_PHOTOS} selected`}
-            >
-              <Text style={styles.mediaIcon}>＋</Text>
-              <Text style={styles.mediaTitle}>
-                {isUploading
-                  ? "Uploading…"
-                  : isPickingMedia
-                    ? "Opening library…"
-                    : "Add photos"}
-              </Text>
-              <Text style={styles.mediaNote}>
-                {photos.length}/${MAX_LISTING_PHOTOS} selected
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.mediaBox,
-                isPickingMedia && styles.mediaBoxDisabled,
-              ]}
-              onPress={pickSampleVideo}
-              disabled={isPickingMedia}
-              accessibilityRole="button"
-              accessibilityLabel="Choose a sample video"
-            >
-              <Text style={styles.mediaIcon}>▶</Text>
-              <Text style={styles.mediaTitle}>
-                {isUploading
-                  ? "Uploading…"
-                  : isPickingMedia
-                    ? "Opening library…"
-                    : "Add sample video"}
-              </Text>
-              <Text style={styles.mediaNote}>
-                {sampleVideo ? "Replace selected video" : "Choose one video"}
-              </Text>
-            </Pressable>
-          </View>
+            <View style={styles.mediaRow}>
+              <Pressable
+                style={[
+                  styles.mediaBox,
+                  (isPickingMedia || photos.length >= MAX_LISTING_PHOTOS) &&
+                    styles.mediaBoxDisabled,
+                ]}
+                onPress={pickPhotos}
+                disabled={isPickingMedia || photos.length >= MAX_LISTING_PHOTOS}
+                accessibilityRole="button"
+                accessibilityLabel={`Choose listing photos, ${photos.length} of ${MAX_LISTING_PHOTOS} selected`}
+              >
+                <Text style={styles.mediaIcon}>＋</Text>
+                <Text style={styles.mediaTitle}>
+                  {isUploading
+                    ? "Uploading…"
+                    : isPickingMedia
+                      ? "Opening library…"
+                      : "Add photos"}
+                </Text>
+                <Text style={styles.mediaNote}>
+                  {photos.length}/${MAX_LISTING_PHOTOS} selected
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.mediaBox,
+                  isPickingMedia && styles.mediaBoxDisabled,
+                ]}
+                onPress={pickSampleVideo}
+                disabled={isPickingMedia}
+                accessibilityRole="button"
+                accessibilityLabel="Choose a sample video"
+              >
+                <Text style={styles.mediaIcon}>▶</Text>
+                <Text style={styles.mediaTitle}>
+                  {isUploading
+                    ? "Uploading…"
+                    : isPickingMedia
+                      ? "Opening library…"
+                      : "Add sample video"}
+                </Text>
+                <Text style={styles.mediaNote}>
+                  {sampleVideo ? "Replace selected video" : "Choose one video"}
+                </Text>
+              </Pressable>
+            </View>
           ) : (
-            <Text style={styles.mediaNote}>Listing media is read-only while editing.</Text>
+            <Text style={styles.mediaNote}>
+              Listing media is read-only while editing.
+            </Text>
           )}
           {photos.length > 0 ? (
             <View style={styles.mediaGrid}>
@@ -583,8 +581,8 @@ export function AddListingScreen() {
             </View>
           ) : null}
           <Text style={styles.mediaNote}>
-            Up to 5 photos (5 MB each) and 1 video (50 MB). JPG, PNG, WebP,
-            MP4, MOV, or WebM.
+            Up to 5 photos (5 MB each) and 1 video (50 MB). JPG, PNG, WebP, MP4,
+            MOV, or WebM.
           </Text>
           {mediaError ? <FormStatus kind="error" message={mediaError} /> : null}
           {isUploading && (
@@ -600,7 +598,9 @@ export function AddListingScreen() {
             accessibilityState={{ expanded: optionalDetailsOpen }}
           >
             <View>
-              <Text style={styles.optionalTitle}>Add more details (optional)</Text>
+              <Text style={styles.optionalTitle}>
+                Add more details (optional)
+              </Text>
               <Text style={styles.optionalSubtitle}>
                 Moisture, color, size and notes
               </Text>

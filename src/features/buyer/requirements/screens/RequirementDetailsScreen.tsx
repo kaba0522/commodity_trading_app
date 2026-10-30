@@ -86,7 +86,7 @@ export function RequirementDetailsScreen() {
     status?: string;
     createdAt?: string;
   }>();
-  const { runWithAuth } = useAuth();
+  const { runWithAuth, session } = useAuth();
   const id = typeof params.id === "string" ? params.id : undefined;
 
   const [requirement, setRequirement] = useState<BuyerRequirement | null>(() =>
@@ -311,7 +311,10 @@ export function RequirementDetailsScreen() {
                 value={
                   /^\d+$/.test(requirement.paymentTerms)
                     ? `${requirement.paymentTerms} days`
-                    : requirement.paymentTerms || "Terms on request"
+                    : requirement.paymentTerms ||
+                      (session?.user.defaultPaymentTerms != null
+                        ? `${session.user.defaultPaymentTerms} days`
+                        : "Terms on request")
                 }
               />
               {requirement.quality ? (
