@@ -13,7 +13,6 @@ import { useOtp } from "@/features/auth/hooks/useOtp";
 import { formatPhoneDisplay } from "@/core/utils/validation";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface VerifyOtpScreenProps {
   phone: string;
@@ -21,7 +20,6 @@ interface VerifyOtpScreenProps {
 }
 
 export function VerifyOtpScreen({ phone, expiresInSec }: VerifyOtpScreenProps) {
-  const insets = useSafeAreaInsets();
   const { code, setCode, error, notice, isLoading, isResending, cooldown, verify, resend } =
     useOtp(phone);
 
@@ -39,8 +37,7 @@ export function VerifyOtpScreen({ phone, expiresInSec }: VerifyOtpScreenProps) {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top,
-            paddingBottom: insets.bottom + spacing.lg,
+            paddingBottom: spacing.lg,
           },
         ]}
         keyboardShouldPersistTaps="handled"

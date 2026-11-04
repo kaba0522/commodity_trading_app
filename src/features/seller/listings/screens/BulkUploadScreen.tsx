@@ -6,7 +6,6 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Seller bulk upload: download the .xlsx template → fill → pick → preview
@@ -14,7 +13,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * Confirm creates new listings or updates the live duplicate.
  */
 export function BulkUploadScreen() {
-  const insets = useSafeAreaInsets();
   const {
     step,
     file,
@@ -38,7 +36,7 @@ export function BulkUploadScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
       keyboardShouldPersistTaps="handled"
     >

@@ -7,7 +7,6 @@ import {
 } from "@/components/common/TabIcons";
 import { colors } from "@/theme/colors";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface BarItem {
   /** Tab route name within its group. */
@@ -49,12 +48,11 @@ interface AppTabBarProps {
  * role-specific slot: Post Needs for buyers, Add listing for sellers).
  */
 export function AppTabBar({ items, active, onPress }: AppTabBarProps) {
-  const insets = useSafeAreaInsets();
   // Five-slot role bars use smaller labels to stay on one line.
   const compact = items.length > 4;
 
   return (
-    <View style={[styles.bar, { paddingBottom: insets.bottom + 20 }]}>
+    <View style={styles.bar}>
       {items.map(({ target, label, Icon }) => {
         const focused = target === active;
         const color = focused ? colors.primary : colors.muted;

@@ -16,13 +16,11 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Buyer's active posted requirements with links to their details and withdraw.
  */
 export function MyRequirementsScreen() {
-  const insets = useSafeAreaInsets();
   const { items, count, isLoading, error, retry, withdraw, withdrawingId } =
     useMyRequirements();
   const [pending, setPending] = useState<BuyerRequirement | null>(null);
@@ -52,18 +50,6 @@ export function MyRequirementsScreen() {
     });
   }
 
-  function openEdit(req: BuyerRequirement) {
-    router.push({
-      pathname: "/post-req/edit/[id]",
-      params: {
-        id: String(req.id),
-        categoryId: req.categoryId ?? "",
-        commodityId: req.commodityId ?? "",
-        quantity: String(req.bags),
-      },
-    });
-  }
-
   async function handleSheetConfirm() {
     if (!pending || pendingBusy) return;
     const ok = await withdraw(pending.id);
@@ -76,8 +62,8 @@ export function MyRequirementsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + spacing.lg,
-            paddingBottom: insets.bottom + spacing.xl,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.xl,
           },
         ]}
       >
@@ -193,15 +179,6 @@ export function MyRequirementsScreen() {
                       ) : null}
                       <View style={styles.actionButtons}>
                         <Pressable
-                          style={styles.editAction}
-                          hitSlop={8}
-                          onPress={() => openEdit(req)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Edit ${req.item}`}
-                        >
-                          <Text style={styles.editText}>Edit</Text>
-                        </Pressable>
-                        <Pressable
                           style={styles.withdrawAction}
                           hitSlop={8}
                           disabled={busy}
@@ -232,7 +209,7 @@ export function MyRequirementsScreen() {
       <Pressable
         style={({ pressed }) => [
           styles.fab,
-          { bottom: insets.bottom + spacing.md },
+          { bottom: spacing.md },
           pressed && styles.fabPressed,
         ]}
         onPress={openForm}

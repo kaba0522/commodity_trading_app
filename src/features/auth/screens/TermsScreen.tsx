@@ -15,7 +15,6 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import type { TosVersion } from "@/features/auth/types/authTypes";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Fallback copy when the server version has no document links yet. */
 const FALLBACK_TOS_TEXT =
@@ -28,7 +27,6 @@ const FALLBACK_TOS_TEXT =
  * current version accepted never land here (`GET /tos/status` decides).
  */
 export function TermsScreen() {
-  const insets = useSafeAreaInsets();
   const { session, acceptTerms } = useAuth();
   const [tos, setTos] = useState<TosVersion | null>(null);
   const [isFetching, setIsFetching] = useState(true);
@@ -109,8 +107,7 @@ export function TermsScreen() {
           styles.center,
           {
             paddingHorizontal: spacing.lg,
-            paddingBottom: insets.bottom + 20,
-            paddingTop: insets.top,
+            paddingBottom: 20,
           },
         ]}
       >
@@ -128,7 +125,7 @@ export function TermsScreen() {
       <View
         style={[
           styles.content,
-          { paddingTop: insets.top, paddingBottom: insets.bottom + 20 },
+          { paddingBottom: 20 },
         ]}
       >
         <View style={styles.tag}>

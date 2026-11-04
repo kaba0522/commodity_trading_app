@@ -6,7 +6,6 @@ import { useFreightRoutes } from "@/features/shared/freight/hooks/useFreightRout
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { useEffect, useState } from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   ScrollView,
@@ -37,7 +36,6 @@ function formatTime(time: string): string {
 
 /** Shared read-only freight rates for buyer and seller roles. */
 export function FreightScreen() {
-  const insets = useSafeAreaInsets();
   const { runWithAuth } = useAuth();
   const [priceExpiryTime, setPriceExpiryTime] = useState<string | null>(null);
   const [priceExpiryError, setPriceExpiryError] = useState<string | null>(null);
@@ -75,8 +73,8 @@ export function FreightScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + spacing.md,
-          paddingBottom: insets.bottom + spacing.xl,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.xl,
         },
       ]}
       keyboardShouldPersistTaps="handled"

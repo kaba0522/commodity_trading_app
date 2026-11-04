@@ -15,7 +15,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Seller Negotiate (Seller App.html `isNegotiate`): opened by tapping a
@@ -23,7 +22,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * with accept, and the seller's counter-offer input.
  */
 export function NegotiateScreen() {
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     id?: string;
     category?: string;
@@ -76,7 +74,7 @@ export function NegotiateScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
       keyboardShouldPersistTaps="handled"
     >

@@ -2,7 +2,7 @@ import { colors } from "@/theme/colors";
 import Svg, { Path } from "react-native-svg";
 
 interface ChevronIconProps {
-  direction?: "right" | "down";
+  direction?: "right" | "down" | "left";
   color?: string;
   size?: number;
 }
@@ -13,7 +13,11 @@ export function ChevronIcon({
   size = 18,
 }: ChevronIconProps) {
   const path =
-    direction === "down" ? "M6 9l6 6 6-6" : "M9 18l6-6-6-6";
+    direction === "down"
+      ? "M6 9l6 6 6-6"
+      : direction === "left"
+        ? "M15 18l-6-6 6-6"
+        : "M9 18l6-6-6-6";
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

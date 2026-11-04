@@ -100,8 +100,8 @@ export function LegalScreen({ doc }: { doc: LegalDoc }) {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(insets.top + spacing.md, 62),
-            paddingBottom: insets.bottom + spacing.xl,
+            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingBottom: spacing.xl,
           },
         ]}
       >

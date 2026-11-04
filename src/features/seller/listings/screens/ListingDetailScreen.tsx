@@ -25,7 +25,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function priceExpiryLabel(value: string | null | undefined): string {
   if (!value) return "No active price expiry";
@@ -65,7 +64,6 @@ function paymentTermsLabel(
  * payment terms, and media from `GET /listings/:id`.
  */
 export function ListingDetailScreen() {
-  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { listing, isLoading, error, retry } = useListingDetail(
     typeof id === "string" ? id : undefined,
@@ -123,7 +121,7 @@ export function ListingDetailScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
     >
       <View style={styles.topRow}>

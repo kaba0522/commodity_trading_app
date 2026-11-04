@@ -3,19 +3,17 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Shared phone sign-in for buyer and seller accounts. */
 export function LoginScreen() {
-  const insets = useSafeAreaInsets();
   return (
     <View style={styles.safe}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + spacing.xl,
-            paddingBottom: insets.bottom + spacing.lg,
+            paddingTop: spacing.xl,
+            paddingBottom: spacing.lg,
           },
         ]}
         keyboardShouldPersistTaps="handled"

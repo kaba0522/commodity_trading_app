@@ -1,11 +1,11 @@
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/common/BackButton";
@@ -71,7 +71,6 @@ function postedDateLabel(value?: string): string | null {
  * plus Withdraw. Back returns to the My requirements list.
  */
 export function RequirementDetailsScreen() {
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     id?: string;
     category?: string;
@@ -174,6 +173,18 @@ export function RequirementDetailsScreen() {
     };
   }, [load]);
 
+  function openEdit(req: BuyerRequirement) {
+    router.push({
+      pathname: "/post-req/edit/[id]",
+      params: {
+        id: String(req.id),
+        categoryId: req.categoryId ?? "",
+        commodityId: req.commodityId ?? "",
+        quantity: String(req.bags),
+      },
+    });
+  }
+
   async function doWithdraw() {
     if (!requirement || isWithdrawing) return;
     setIsWithdrawing(true);
@@ -198,8 +209,8 @@ export function RequirementDetailsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + spacing.md,
-            paddingBottom: insets.bottom + spacing.xl,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.xl,
           },
         ]}
       >
@@ -208,6 +219,38 @@ export function RequirementDetailsScreen() {
             accessibilityLabel="Back to my requirements"
             fallback="/post-req"
           />
+          {requirement ? (
+            <View style={styles.buttonWrapper}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.detailAction,
+                  styles.editButton,
+                  pressed && styles.actionPressed,
+                ]}
+                onPress={() => openEdit(requirement)}
+                accessibilityRole="button"
+                accessibilityLabel="Edit requirement"
+              >
+                <Text style={[styles.actionText, styles.editActionText]}>
+                  Edit
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.detailAction,
+                  styles.withdrawButton,
+                  pressed && styles.actionPressed,
+                ]}
+                onPress={() => setShowConfirm(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Withdraw requirement"
+              >
+                <Text style={[styles.actionText, styles.withdrawActionText]}>
+                  Withdraw
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {isLoading && !requirement ? (
@@ -336,13 +379,6 @@ export function RequirementDetailsScreen() {
 
             {error ? <FormStatus kind="error" message={error} /> : null}
 
-            <View style={styles.buttonWrapper}>
-              <Button
-                title="Withdraw requirement"
-                variant="secondary"
-                onPress={() => setShowConfirm(true)}
-              />
-            </View>
           </>
         ) : null}
       </ScrollView>
@@ -391,7 +427,8 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   title: {
     fontFamily: fonts.heading,
@@ -578,7 +615,34 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   buttonWrapper: {
-    marginTop: spacing.xs,
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  detailAction: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+    borderRadius: 18,
+  },
+  editButton: {
+    backgroundColor: colors.primaryTint,
+  },
+  withdrawButton: {
+    backgroundColor: colors.dangerBg,
+  },
+  actionPressed: {
+    opacity: 0.65,
+  },
+  actionText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  editActionText: {
+    color: colors.primaryDark,
+  },
+  withdrawActionText: {
+    color: colors.danger,
   },
   center: {
     alignItems: "center",

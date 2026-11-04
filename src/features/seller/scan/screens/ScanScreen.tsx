@@ -14,7 +14,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Seller scan flow (`isScan` + `isReview` in Seller App.html).
@@ -23,7 +22,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * sample rows locally.
  */
 export function ScanScreen() {
-  const insets = useSafeAreaInsets();
   const {
     step,
     photoUri,
@@ -49,7 +47,7 @@ export function ScanScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + spacing.md },
+          { paddingTop: spacing.md },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -149,7 +147,7 @@ export function ScanScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
     >
       <BackButton />

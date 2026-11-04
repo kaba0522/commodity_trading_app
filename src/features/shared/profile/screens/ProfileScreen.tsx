@@ -94,11 +94,9 @@ export function ProfileScreen({
         styles.content,
         {
           paddingTop: showBack
-            ? Math.max(insets.top + spacing.md, 62)
-            : insets.top + spacing.md,
-          paddingBottom: showTabBar
-            ? insets.bottom + spacing.xl
-            : spacing.xl,
+            ? Math.max(spacing.md, 62 - insets.top)
+            : spacing.md,
+          paddingBottom: spacing.xl,
         },
       ]}
     >

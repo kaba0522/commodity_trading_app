@@ -13,11 +13,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Buyer offer screen (`Buyer App.html` negotiation flow). */
 export function ListingNegotiationScreen() {
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     item?: string;
     seller?: string;
@@ -72,8 +70,8 @@ export function ListingNegotiationScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + spacing.md,
-          paddingBottom: insets.bottom + spacing.xl,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.xl,
         },
       ]}
       keyboardShouldPersistTaps="handled"

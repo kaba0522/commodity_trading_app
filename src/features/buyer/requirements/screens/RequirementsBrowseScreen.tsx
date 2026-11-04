@@ -18,11 +18,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Seller Browse (`isRequirements` in Seller App.html): buyer requirements, By Commodity / By Buyer. */
 export function RequirementsBrowseScreen() {
-  const insets = useSafeAreaInsets();
   const { buyer: buyerParam } = useLocalSearchParams<{ buyer?: string }>();
   const {
     mode,
@@ -89,7 +87,7 @@ export function RequirementsBrowseScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
     >
       <Text style={styles.title}>Buyer Requirements</Text>

@@ -18,11 +18,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Buyer Browse (`isBrowse` in Buyer App.html): By Commodity / By Seller, rows open detail next slice. */
 export function BrowseScreen() {
-  const insets = useSafeAreaInsets();
   const { seller: sellerParam } = useLocalSearchParams<{ seller?: string }>();
   const {
     categories,
@@ -89,7 +87,7 @@ export function BrowseScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
     >
       <View style={styles.header}>

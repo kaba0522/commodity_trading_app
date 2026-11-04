@@ -13,7 +13,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Seller bulk price edit (`isBulk` in Seller App.html): checkbox rows,
@@ -22,7 +21,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * saved via `PATCH /listings/bulk-price`.
  */
 export function BulkEditScreen() {
-  const insets = useSafeAreaInsets();
   const {
     rows,
     activeRows,
@@ -54,7 +52,7 @@ export function BulkEditScreen() {
   const visibleSelectableIds = rows.map((row) => row.id);
 
   return (
-    <View style={[styles.safe, { paddingTop: insets.top + spacing.md }]}>
+    <View style={[styles.safe, { paddingTop: spacing.md }]}>
       <View style={styles.head}>
         <BackButton fallback="/add-listing" />
         <Text style={styles.title}>Bulk edit prices</Text>
@@ -163,7 +161,7 @@ export function BulkEditScreen() {
       )}
 
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}
+        style={[styles.footer, { paddingBottom: spacing.md }]}
       >
         {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
         {selectedActiveCount > 0 ? (

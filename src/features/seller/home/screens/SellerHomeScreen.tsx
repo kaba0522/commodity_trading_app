@@ -18,7 +18,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface CategoryGroup {
   category: string;
@@ -31,7 +30,6 @@ interface CategoryGroup {
  * rate sheet on the price, Bulk edit in the header and an add-listing FAB.
  */
 export function SellerHomeScreen() {
-  const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<HomeFilter>(null);
   const [rateTarget, setRateTarget] = useState<HomeRow | null>(null);
   const {
@@ -103,7 +101,7 @@ export function SellerHomeScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + spacing.md },
+          { paddingTop: spacing.md },
         ]}
       >
         <View style={styles.header}>

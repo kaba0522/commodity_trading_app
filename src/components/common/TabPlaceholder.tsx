@@ -1,7 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface TabPlaceholderProps {
   title: string;
@@ -16,9 +15,8 @@ export function TabPlaceholder({
   title,
   note = "Arrives in the next slice — browse, negotiate and trade flows plug in here.",
 }: TabPlaceholderProps) {
-  const insets = useSafeAreaInsets();
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}>
+    <ScrollView contentContainerStyle={[styles.content, { paddingTop: spacing.md }]}>
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
       </View>

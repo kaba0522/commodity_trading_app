@@ -24,7 +24,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const MAX_LISTING_PHOTOS = 5;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -86,7 +85,6 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
  * itemName is derived server-side from the commodity, so there is no free-text item field.
  */
 export function AddListingScreen() {
-  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const editListingId = typeof id === "string" ? id : undefined;
   const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
@@ -273,7 +271,7 @@ export function AddListingScreen() {
         style={[
           styles.flex,
           styles.centered,
-          { paddingTop: insets.top + spacing.md },
+          { paddingTop: spacing.md },
         ]}
       >
         <BackButton accessibilityLabel="Back to listing details" />
@@ -291,7 +289,7 @@ export function AddListingScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + spacing.md },
+          { paddingTop: spacing.md },
         ]}
         keyboardShouldPersistTaps="handled"
       >

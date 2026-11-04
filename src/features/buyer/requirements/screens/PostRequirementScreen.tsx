@@ -20,7 +20,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Buyer Post requirement: category → commodity (live backend UUIDs),
@@ -36,7 +35,6 @@ export function PostRequirementScreen({
   editId,
   initialValues,
 }: PostRequirementScreenProps) {
-  const insets = useSafeAreaInsets();
   const {
     values,
     setField,
@@ -100,7 +98,7 @@ export function PostRequirementScreen({
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + spacing.md },
+          { paddingTop: spacing.md },
         ]}
         keyboardShouldPersistTaps="handled"
       >

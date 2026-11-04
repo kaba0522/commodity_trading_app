@@ -16,7 +16,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const FIRM_TERMS =
   "Goods must be outward within two days of order confirmation. Program received only before 5:00 PM. No tempo loading after 10 PM. Prices are subject to market conditions.";
@@ -40,7 +39,6 @@ function priceExpiryLabel(value: string | null | undefined): string {
  * view-all-from-seller. Offer/buy submit needs a backend trade contract.
  */
 export function ListingDetailScreen() {
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     id?: string;
     category?: string;
@@ -86,7 +84,7 @@ export function ListingDetailScreen() {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.md },
+        { paddingTop: spacing.md },
       ]}
     >
       <BackButton accessibilityLabel="Back to browse" fallback="/browse" />
