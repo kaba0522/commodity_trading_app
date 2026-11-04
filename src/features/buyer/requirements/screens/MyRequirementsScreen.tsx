@@ -113,58 +113,64 @@ export function MyRequirementsScreen() {
               {items.map((req) => {
                 const busy = withdrawingId === String(req.id);
                 const details = [
-                  req.quality,
                   req.paymentTerms ? `${req.paymentTerms} terms` : null,
                   req.location,
                 ].filter((detail): detail is string => Boolean(detail));
 
                 return (
                   <View key={String(req.id)} style={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.categoryText}>{req.category}</Text>
+                    </View>
                     <Pressable
-                      style={styles.cardContent}
+                      style={styles.row}
                       onPress={() => openDetail(req)}
                       accessibilityRole="button"
                       accessibilityLabel={`${req.item}, ${req.bags} bags. View requirement details.`}
                     >
-                      <View style={styles.cardInfo}>
-                        <View style={styles.categoryBadge}>
-                          <Text style={styles.categoryText} numberOfLines={1}>
-                            {req.category}
-                          </Text>
-                        </View>
-                        <Text style={styles.itemTitle} numberOfLines={1}>
+                      <View style={styles.rowBadge}>
+                        <Text style={styles.rowBadgeText} numberOfLines={2}>
                           {req.item}
                         </Text>
-                        <Text style={styles.quantity} numberOfLines={1}>
+                      </View>
+                      <View style={styles.rowMain}>
+                        <Text style={styles.rowQuality} numberOfLines={1}>
+                          {req.quality || "Standard"}
+                        </Text>
+                        <Text style={styles.rowBags} numberOfLines={1}>
                           {req.bags.toLocaleString("en-IN")} bags
                           {req.weightKg != null
                             ? ` · ${req.weightKg} kg / bag`
                             : ""}
                         </Text>
                         {details.length > 0 ? (
-                          <Text style={styles.details} numberOfLines={1}>
+                          <Text style={styles.rowDetails} numberOfLines={1}>
                             {details.join(" · ")}
                           </Text>
                         ) : null}
                       </View>
-                      <View style={styles.priceSide}>
-                        <View style={styles.priceBlock}>
-                          <Text
-                            style={[
-                              styles.price,
-                              req.targetPrice <= 0 && styles.openPrice,
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {req.targetPrice > 0
-                              ? `₹${req.targetPrice.toLocaleString("en-IN")}`
-                              : "View details"}
-                          </Text>
-                          {req.targetPrice > 0 ? (
-                            <Text style={styles.priceUnit}>per bag</Text>
-                          ) : null}
-                        </View>
-                        <ChevronIcon />
+                      <View
+                        style={[
+                          styles.rowPrice,
+                          req.targetPrice <= 0 && styles.rowPriceOpen,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.price,
+                            req.targetPrice <= 0 && styles.openPrice,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {req.targetPrice > 0
+                            ? `₹${req.targetPrice.toLocaleString("en-IN")}`
+                            : "View details"}
+                        </Text>
+                        {req.targetPrice > 0 ? (
+                          <Text style={styles.priceUnit}>per bag</Text>
+                        ) : (
+                          <ChevronIcon color={colors.primary} size={16} />
+                        )}
                       </View>
                     </Pressable>
 
@@ -322,77 +328,103 @@ const styles = StyleSheet.create({
   },
   card: {
     overflow: "hidden",
-    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
   },
-  cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  cardInfo: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing.xs,
-  },
-  categoryBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.tagBuyerBg,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+  cardHeader: {
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   categoryText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.tagBuyerText,
-  },
-  itemTitle: {
-    fontFamily: fonts.heading,
-    fontSize: 16,
+    fontSize: 13.5,
     fontWeight: "700",
     color: colors.text,
   },
-  quantity: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.text,
-  },
-  details: {
-    fontFamily: fonts.body,
-    fontSize: 11.5,
-    color: colors.muted,
-  },
-  priceSide: {
-    maxWidth: 120,
-    flexShrink: 0,
+  row: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
+    alignItems: "stretch",
+    minHeight: 68,
+    backgroundColor: colors.background,
   },
-  priceBlock: {
+  rowBadge: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primaryTint,
+    padding: 4,
+  },
+  rowBadgeText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 13,
+    textAlign: "center",
+    color: colors.primaryDark,
+  },
+  rowMain: {
     flex: 1,
     minWidth: 0,
+    justifyContent: "center",
+    gap: 2,
+    paddingVertical: 8,
+    paddingLeft: 12,
+  },
+  rowQuality: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+    textTransform: "capitalize",
+  },
+  rowBags: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.muted,
+  },
+  rowDetails: {
+    fontFamily: fonts.body,
+    fontSize: 10.5,
+    color: colors.muted,
+  },
+  rowPrice: {
+    minWidth: 100,
+    flexShrink: 0,
     alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 3,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  rowPriceOpen: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    minWidth: 0,
+    paddingHorizontal: 10,
   },
   price: {
     fontFamily: fonts.bodyBold,
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "700",
-    color: colors.primaryDark,
-    textAlign: "right",
+    lineHeight: 21,
+    color: colors.text,
+    textDecorationLine: "underline",
+    textDecorationStyle: "solid",
   },
   openPrice: {
-    fontSize: 11,
-    color: colors.primaryDark,
+    fontSize: 12,
+    color: colors.primary,
+    textDecorationLine: "none",
   },
   priceUnit: {
     fontFamily: fonts.body,
-    fontSize: 11,
+    fontSize: 10.5,
     color: colors.muted,
   },
   actionHint: {

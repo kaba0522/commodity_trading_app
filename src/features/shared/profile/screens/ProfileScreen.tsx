@@ -14,7 +14,6 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { formatPhoneDisplay } from "@/core/utils/validation";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Common profile (`isProfile` in both prototypes), parameterized by role. */
 interface ProfileScreenProps {
@@ -31,7 +30,6 @@ export function ProfileScreen({
   const { session, signOut, runWithAuth, mergeSessionUser } = useAuth();
   const role = resolveBackendRole(session?.user);
   const { main, share, legal } = useProfile(role);
-  const insets = useSafeAreaInsets();
   const [notice, setNotice] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -93,9 +91,7 @@ export function ProfileScreen({
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: showBack
-            ? Math.max(spacing.md, 62 - insets.top)
-            : spacing.md,
+          paddingTop: showBack ? spacing.sm : spacing.md,
           paddingBottom: spacing.xl,
         },
       ]}
@@ -157,7 +153,6 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: 62,
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,

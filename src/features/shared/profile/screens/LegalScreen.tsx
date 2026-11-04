@@ -17,7 +17,6 @@ import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBa
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type LegalDoc = "terms" | "privacy";
 
@@ -54,7 +53,6 @@ function formatEffectiveDate(raw: string): string {
  * Past trades.
  */
 export function LegalScreen({ doc }: { doc: LegalDoc }) {
-  const insets = useSafeAreaInsets();
   const { runWithAuth } = useAuth();
   const [tos, setTos] = useState<TosVersion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +98,7 @@ export function LegalScreen({ doc }: { doc: LegalDoc }) {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingTop: spacing.sm,
             paddingBottom: spacing.xl,
           },
         ]}

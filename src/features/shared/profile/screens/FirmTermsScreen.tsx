@@ -8,7 +8,6 @@ import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Firm Terms of Service (Profile → Firm terms): the seller's own terms
@@ -16,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * up to 2000 characters server-side).
  */
 export function FirmTermsScreen() {
-  const insets = useSafeAreaInsets();
   const { profile, save, isSaving, saveError, saved } = useMyProfile();
   const [terms, setTerms] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -45,7 +43,7 @@ export function FirmTermsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingTop: spacing.sm,
             paddingBottom: spacing.xl,
           },
         ]}

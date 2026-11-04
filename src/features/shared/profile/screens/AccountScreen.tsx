@@ -21,7 +21,6 @@ import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** White person glyph on the primary circle (same icon as ProfileButton). */
 function AvatarGlyph({ size = 22 }: { size?: number }) {
@@ -51,7 +50,6 @@ function AvatarGlyph({ size = 22 }: { size?: number }) {
 export function AccountScreen() {
   const { session } = useAuth();
   const role = resolveBackendRole(session?.user);
-  const insets = useSafeAreaInsets();
   const [notice, setNotice] = useState<string | null>(null);
   const { profile, save, isSaving, saveError, saved } = useMyProfile();
 
@@ -124,7 +122,7 @@ export function AccountScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingTop: spacing.sm,
             paddingBottom: spacing.xl,
           },
         ]}

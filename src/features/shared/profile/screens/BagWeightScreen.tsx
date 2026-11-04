@@ -8,7 +8,6 @@ import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Bag weight screen (Profile → Bag weight): the seller's default weight
@@ -16,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * `PATCH /users/me` (`defaultWeightKg`, a non-negative integer).
  */
 export function BagWeightScreen() {
-  const insets = useSafeAreaInsets();
   const { profile, save, isSaving, saveError, saved } = useMyProfile();
   const [weight, setWeight] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -54,7 +52,7 @@ export function BagWeightScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingTop: spacing.sm,
             paddingBottom: spacing.xl,
           },
         ]}

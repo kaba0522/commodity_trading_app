@@ -38,11 +38,11 @@ export function LoginScreen() {
             })
           }
         />
-        <View style={styles.footer}>
+        {/* <View style={styles.footer}>
           <Text style={styles.invite}>
             Only invited users can sign in. Contact your broker for access.
           </Text>
-        </View>
+        </View> */}
       </ScrollView>
     </View>
   );

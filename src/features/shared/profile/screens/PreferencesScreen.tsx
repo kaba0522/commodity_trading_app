@@ -11,7 +11,6 @@ import { ProfileTabBar } from "@/features/shared/profile/components/ProfileTabBa
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PreferenceKey = "push" | "whatsapp" | "sms";
 
@@ -26,7 +25,6 @@ const OPTIONS: { key: PreferenceKey; label: string; defaultOn: boolean }[] = [
  * Local-only until the backend preferences contract exists.
  */
 export function PreferencesScreen() {
-  const insets = useSafeAreaInsets();
   const [enabled, setEnabled] = useState<Record<PreferenceKey, boolean>>({
     push: true,
     whatsapp: true,
@@ -44,7 +42,7 @@ export function PreferencesScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingTop: spacing.sm,
             paddingBottom: spacing.xl,
           },
         ]}

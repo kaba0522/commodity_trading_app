@@ -10,7 +10,6 @@ import { useMyProfile } from "@/features/shared/profile/hooks/useMyProfile";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Payment terms screen (Profile → Payment terms): the seller's default
@@ -22,7 +21,6 @@ export function PaymentTermsScreen() {
   const { session } = useAuth();
   const role = resolveBackendRole(session?.user);
   const isSeller = role === "seller";
-  const insets = useSafeAreaInsets();
   const { profile, save, isSaving, saveError, saved } = useMyProfile();
   const [days, setDays] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -66,7 +64,7 @@ export function PaymentTermsScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Math.max(spacing.md, 62 - insets.top),
+            paddingTop: spacing.sm,
             paddingBottom: spacing.xl,
           },
         ]}
