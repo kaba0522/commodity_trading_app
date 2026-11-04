@@ -295,8 +295,8 @@ function normalizeRequirement(
 export interface CreateRequirementInput {
   categoryId: string;
   commodityId: string;
+  qualityId: string;
   quantityBags: number;
-  quality?: string | null;
   weightKg?: number | null;
   paymentTerms?: number | null;
   location?: string | null;
@@ -323,7 +323,7 @@ export const requirementsApi = {
       commodityId: input.commodityId,
       quantityBags: input.quantityBags,
     };
-    if (input.quality) body["quality"] = input.quality;
+    body["qualityId"] = input.qualityId;
     if (input.weightKg != null) body["weightKg"] = input.weightKg;
     if (input.paymentTerms != null) body["paymentTerms"] = input.paymentTerms;
     if (input.location) body["location"] = input.location;

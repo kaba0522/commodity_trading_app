@@ -6,7 +6,7 @@ import {
   usePostRequirement,
   type PostRequirementValues,
 } from "@/features/buyer/requirements/hooks/usePostRequirement";
-import { QUALITY_GRADES } from "@/features/seller/listings/schemas/listingSchemas";
+import { useCategoryQualities } from "@/features/shared/catalog/hooks/useCategoryQualities";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router } from "expo-router";
@@ -55,6 +55,14 @@ export function PostRequirementScreen({
     commodityNameById,
     isEditing,
   } = usePostRequirement({ editId, initialValues });
+  const {
+    qualities,
+    isLoading: qualitiesLoading,
+    error: qualitiesError,
+    retry: retryQualities,
+  } = useCategoryQualities(
+    isEditing ? null : values.categoryId || null,
+  );
 
   const selectedCategoryName = values.categoryId
     ? (categoryNameById.get(values.categoryId) ?? "")
@@ -62,16 +70,18 @@ export function PostRequirementScreen({
   const selectedCommodityName = values.commodityId
     ? (commodityNameById.get(values.commodityId) ?? "")
     : "";
-  const qualityOptions = QUALITY_GRADES.map((grade) =>
-    grade
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase()),
-  );
-  const selectedQualityLabel = values.quality
-    ? values.quality
-        .replaceAll("_", " ")
-        .replace(/\b\w/g, (letter) => letter.toUpperCase())
-    : "";
+  const qualityOptions = qualities.map((quality) => quality.name);
+  const selectedQualityLabel =
+    qualities.find((quality) => quality.id === values.qualityId)?.name ?? "";
+  const qualityPlaceholder = !values.categoryId
+    ? "Select a category first"
+    : qualitiesLoading
+      ? "Loading qualities…"
+      : qualitiesError
+        ? "Could not load qualities"
+        : qualities.length === 0
+        ? "No qualities configured for this category. Contact an admin to add qualities before posting."
+          : "Select a quality grade";
   const commodityPlaceholder = !values.categoryId
     ? "Select a category first"
     : commoditiesLoading
@@ -167,29 +177,47 @@ export function PostRequirementScreen({
             </>
           )}
           {!isEditing ? (
-            <Dropdown
-              label="Quality grade"
-              placeholder={
-                values.categoryId && values.commodityId
-                  ? "Select a quality grade"
-                  : "Select commodity and category first"
-              }
-              value={selectedQualityLabel}
-              options={
-                values.categoryId && values.commodityId ? qualityOptions : []
-              }
-              onChange={(label) => {
-                const found = QUALITY_GRADES.find(
-                  (grade) =>
-                    grade
-                      .replaceAll("_", " ")
-                      .replace(/\b\w/g, (letter) => letter.toUpperCase()) ===
-                    label,
-                );
-                if (found) setField("quality", found);
-              }}
-              error={fieldErrors.quality ?? null}
-            />
+            <>
+              {values.categoryId &&
+              !qualitiesLoading &&
+              !qualitiesError &&
+              qualities.length > 0 ? (
+                <Dropdown
+                  label="Quality grade"
+                  placeholder={qualityPlaceholder}
+                  value={selectedQualityLabel}
+                  options={qualityOptions}
+                  onChange={(name) => {
+                    const found = qualities.find(
+                      (quality) => quality.name === name,
+                    );
+                    if (found) setField("qualityId", found.id);
+                  }}
+                  error={fieldErrors.qualityId ?? null}
+                />
+              ) : (
+                <View>
+                  <Text style={styles.label}>Quality grade</Text>
+                  <Text style={styles.helperText}>{qualityPlaceholder}</Text>
+                  {fieldErrors.qualityId ? (
+                    <Text style={styles.fieldError}>
+                      {fieldErrors.qualityId}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+              {qualitiesError ? (
+                <Pressable
+                  onPress={retryQualities}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading qualities"
+                >
+                  <Text style={styles.fieldError}>
+                    {qualitiesError} Tap to retry.
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
           ) : null}
         </View>
 
@@ -271,6 +299,13 @@ export function PostRequirementScreen({
           title={isEditing ? "Save changes" : "Post requirement"}
           onPress={submit}
           loading={isLoading}
+          disabled={
+            !isEditing &&
+            Boolean(values.categoryId) &&
+            (qualitiesLoading ||
+              qualitiesError !== null ||
+              qualities.length === 0)
+          }
         />
         {success ? (
           <Button

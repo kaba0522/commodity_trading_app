@@ -88,6 +88,13 @@ export const COMMODITIES_ENDPOINTS = {
   },
 } as const;
 
+export const QUALITIES_ENDPOINTS = {
+  list: (categoryId: string) => {
+    const q = new URLSearchParams({ categoryId, limit: "100" });
+    return `/qualities?${q.toString()}`;
+  },
+} as const;
+
 export function apiUrl(path: string): string {
   return `${ENV.apiUrl}${path}`;
 }

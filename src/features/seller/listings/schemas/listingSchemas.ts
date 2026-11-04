@@ -3,29 +3,6 @@ import { z } from "zod";
 /** Offline fallback options (live list comes from GET `/commodity-categories`). */
 export const LISTING_CATEGORIES = ["Besan", "Dal", "Matar", "Chana", "Rajma", "Rice"] as const;
 
-/**
- * Backend-exact `QUALITY_GRADES` (`D:\Tradding_backend\services\listing.validation.js`
- * — mirrors the Prisma `QualityGrade` enum; `optionalEnum` rejects anything else).
- */
-export const QUALITY_GRADES = [
-  "barik",
-  "chota",
-  "mota",
-  "dardra",
-  "small",
-  "bold",
-  "normal",
-  "dry",
-  "full_green",
-  "medium",
-  "standard",
-  "madras",
-  "imported",
-  "stream",
-  "sella",
-  "parmal",
-] as const;
-
 const uuid = z
   .string()
   .trim()
@@ -75,7 +52,7 @@ const optionalNonNegativeIntString = (field: string) =>
 /**
  * Seller Add-listing validation — mirrors backend `validateSellListingInput`:
  * categoryId + commodityId UUIDs, quantityBags required, price and weightKg
- * optional, quality one of the backend grades, payment terms as a
+ * optional, qualityId scoped to the category, payment terms as a
  * non-negative integer when supplied, and media URL counts within backend limits.
  * Scalar fields stay strings here; the hook converts numbers at the boundary.
  * Media fields are arrays of uploaded Cloudinary URLs.
@@ -83,13 +60,11 @@ const optionalNonNegativeIntString = (field: string) =>
 export const addListingSchema = z.object({
   categoryId: uuid,
   commodityId: uuid,
-  quality: z
+  qualityId: z
     .string()
     .trim()
     .min(1, "Quality is required")
-    .refine((v) => v === "" || (QUALITY_GRADES as readonly string[]).includes(v), {
-      message: `Quality must be one of: ${QUALITY_GRADES.join(", ")}`,
-    }),
+    .uuid("Select a valid quality"),
   quantity: positiveIntString("Quantity"),
   weightKg: optionalPositiveIntString("Weight"),
   price: optionalPositiveDecimalString("Price"),
@@ -115,19 +90,17 @@ export type EditListingSchema = z.infer<typeof editListingSchema>;
 
 /**
  * Buyer post-requirement client validation: categoryId, commodityId, and
- * quality and quantity are required; optional listing details can also be supplied.
+ * qualityId and quantity are required; optional listing details can also be supplied.
  * BUY requirements do not accept a price; sellers and buyers negotiate later.
  */
 export const postRequirementSchema = z.object({
   categoryId: uuid,
   commodityId: uuid,
-  quality: z
+  qualityId: z
     .string()
     .trim()
     .min(1, "Quality is required")
-    .refine((v) => v === "" || (QUALITY_GRADES as readonly string[]).includes(v), {
-      message: `Quality must be one of: ${QUALITY_GRADES.join(", ")}`,
-    }),
+    .uuid("Select a valid quality"),
   quantity: positiveIntString("Quantity"),
   weightKg: optionalPositiveIntString("Weight"),
   paymentTerms: optionalNonNegativeIntString("Payment terms (days)"),

@@ -159,7 +159,7 @@ export function useBulkUpload() {
         rowIndex: r.rowIndex,
         categoryId: r.resolved.categoryId as string,
         commodityId: r.resolved.commodityId as string,
-        quality: r.resolved.quality,
+        qualityId: r.resolved.qualityId as string,
         quantityBags: r.resolved.quantityBags as number,
         weightKg: r.resolved.weightKg,
         price: r.resolved.price,

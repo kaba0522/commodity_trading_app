@@ -1,5 +1,10 @@
 import { apiFetch } from "@/core/api/client";
-import { COMMODITIES_ENDPOINTS, COMMODITY_CATEGORIES_ENDPOINTS, apiUrl } from "@/core/api/endpoints";
+import {
+  COMMODITIES_ENDPOINTS,
+  COMMODITY_CATEGORIES_ENDPOINTS,
+  QUALITIES_ENDPOINTS,
+  apiUrl,
+} from "@/core/api/endpoints";
 
 /** Commodity category row (GET `/commodity-categories` → `{ id, name }`). */
 export interface CatalogCategory {
@@ -15,6 +20,13 @@ export interface CatalogCommodity {
   categoryName: string;
 }
 
+/** Category-scoped quality row returned by GET `/qualities?categoryId=`. */
+export interface CatalogQuality {
+  id: string;
+  name: string;
+  categoryId: string;
+}
+
 function toId(v: unknown): string | null {
   if (typeof v === "string" && v.trim()) return v.trim();
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
@@ -23,7 +35,14 @@ function toId(v: unknown): string | null {
 
 function unwrapList(raw: unknown): unknown[] {
   const pick = (obj: Record<string, unknown>): unknown[] | null => {
-    for (const k of ["items", "results", "commodities", "categories", "rows"]) {
+    for (const k of [
+      "items",
+      "results",
+      "commodities",
+      "categories",
+      "qualities",
+      "rows",
+    ]) {
       const v = obj[k];
       if (Array.isArray(v)) return v;
     }
@@ -103,6 +122,46 @@ export const catalogApi = {
       if (!id || !name || seen.has(id)) continue;
       seen.add(id);
       out.push({ id, name, categoryId: commodityCategoryId, categoryName });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  /** GET `/qualities?categoryId=&limit=100` — qualities for one category. */
+  async getQualities(
+    token: string,
+    categoryId: string,
+  ): Promise<CatalogQuality[]> {
+    const raw = await apiFetch<unknown>(
+      apiUrl(QUALITIES_ENDPOINTS.list(categoryId)),
+      { token },
+    );
+    const out: CatalogQuality[] = [];
+    const seen = new Set<string>();
+    for (const entry of unwrapList(raw)) {
+      if (entry === null || typeof entry !== "object") continue;
+      const o = entry as Record<string, unknown>;
+      const id = toId(o["id"] ?? o["_id"]);
+      const name = displayName(o["name"]);
+      const categoryIdFromRow =
+        toId(o["categoryId"]) ??
+        toId(o["category_id"]) ??
+        (o["category"] !== null && typeof o["category"] === "object"
+          ? toId((o["category"] as Record<string, unknown>)["id"])
+          : null);
+      if (
+        !id ||
+        !name ||
+        (categoryIdFromRow !== null && categoryIdFromRow !== categoryId) ||
+        seen.has(id)
+      ) {
+        continue;
+      }
+      seen.add(id);
+      out.push({
+        id,
+        name,
+        categoryId: categoryIdFromRow ?? categoryId,
+      });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
   },

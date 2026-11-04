@@ -174,7 +174,9 @@ export function BrowseScreen() {
                       </Text>
                       {/* <Text style={styles.commodityPriceCaption}>per bag</Text> */}
                     </View>
-                    <ChevronIcon />
+                    <View style={styles.requirementChevron}>
+                      <ChevronIcon />
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -228,7 +230,9 @@ export function BrowseScreen() {
                         <Text style={styles.sellerListingPrice}>
                           {row.priceText}
                         </Text>
-                        <ChevronIcon />
+                        <View style={styles.requirementChevron}>
+                          <ChevronIcon />
+                        </View>
                       </Pressable>
                     );
                   }),
@@ -358,6 +362,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
+  },
+  requirementChevron: {
+    marginRight: spacing.sm,
   },
   commodityPriceText: {
     fontSize: 14,

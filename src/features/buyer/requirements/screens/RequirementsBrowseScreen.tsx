@@ -133,7 +133,9 @@ export function RequirementsBrowseScreen() {
         <View style={styles.stack}>
           {commodityGroups.map(([groupCategory, groupRows]) => (
             <View key={groupCategory} style={styles.group}>
-              <Text style={styles.groupTitle}>{groupCategory}</Text>
+              <View style={styles.groupHeader}>
+                <Text style={styles.groupTitle}>{groupCategory}</Text>
+              </View>
               <View style={styles.requirementList}>
                 {groupRows.map((row, index) => (
                   <Pressable
@@ -165,11 +167,13 @@ export function RequirementsBrowseScreen() {
                           </Text>
                         ) : null}
                         <Text style={styles.requirementMeta}>
-                        · {bagsLabel(row.bags)}
+                          · {bagsLabel(row.bags)}
                         </Text>
                       </View>
                     </View>
-                    <ChevronIcon />
+                    <View style={styles.requirementChevron}>
+                      <ChevronIcon />
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -225,7 +229,9 @@ export function RequirementsBrowseScreen() {
                         </Text>
                       </View>
                     </View>
-                    <ChevronIcon />
+                    <View style={styles.requirementChevron}>
+                      <ChevronIcon />
+                    </View>
                   </Pressable>
                 ))}
               </ExpandableGroupCard>
@@ -270,10 +276,20 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   group: {
-    gap: spacing.sm,
+    marginTop: 2,
+  },
+  groupHeader: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   groupTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: "700",
     color: colors.text,
   },
@@ -282,7 +298,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
   },
   requirementRow: {
     minHeight: 68,
@@ -317,6 +334,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     paddingHorizontal: spacing.md,
     gap: 3,
+  },
+  requirementChevron: {
+    marginRight: spacing.sm,
   },
   buyerName: {
     fontSize: 13,

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 export type PostRequirementField =
   | "categoryId"
   | "commodityId"
-  | "quality"
+  | "qualityId"
   | "quantity"
   | "weightKg"
   | "paymentTerms"
@@ -18,7 +18,7 @@ export type PostRequirementField =
 export interface PostRequirementValues {
   categoryId: string;
   commodityId: string;
-  quality: string;
+  qualityId: string;
   quantity: string;
   weightKg: string;
   paymentTerms: string;
@@ -36,7 +36,7 @@ export type PostRequirementFieldErrors = Partial<Record<PostRequirementField, st
 const INITIAL_VALUES: PostRequirementValues = {
   categoryId: "",
   commodityId: "",
-  quality: "",
+  qualityId: "",
   quantity: "",
   weightKg: "",
   paymentTerms: "",
@@ -164,16 +164,14 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
       const next = { ...prev, [field]: value };
       if (field === "categoryId" && value !== prev.categoryId) {
         next.commodityId = "";
-        next.quality = "";
-      } else if (field === "commodityId" && value !== prev.commodityId) {
-        next.quality = "";
+        next.qualityId = "";
       }
       return next;
     });
     setFieldErrors((prev) => {
       if (
         !prev[field] &&
-        !((field === "categoryId" || field === "commodityId") && prev["quality"]) &&
+        !(field === "categoryId" && prev["qualityId"]) &&
         !(field === "categoryId" && prev["commodityId"])
       ) {
         return prev;
@@ -182,9 +180,7 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
       delete next[field];
       if (field === "categoryId") {
         delete next["commodityId"];
-        delete next["quality"];
-      } else if (field === "commodityId") {
-        delete next["quality"];
+        delete next["qualityId"];
       }
       return next;
     });
@@ -238,7 +234,7 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
     const parsed = postRequirementSchema.safeParse({
       categoryId: values.categoryId,
       commodityId: values.commodityId,
-      quality: values.quality,
+      qualityId: values.qualityId,
       quantity: values.quantity,
       weightKg: values.weightKg,
       paymentTerms: values.paymentTerms,
@@ -262,7 +258,7 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
             categoryId: values.categoryId.trim(),
             commodityId: values.commodityId.trim(),
             quantityBags: Number(values.quantity.trim()),
-            quality: values.quality.trim() || null,
+            qualityId: values.qualityId.trim(),
             weightKg: values.weightKg.trim()
               ? Number(values.weightKg.trim())
               : null,

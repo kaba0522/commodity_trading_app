@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: colors.text,
     textDecorationLine: "underline",
-    textDecorationStyle: "dotted",
+    textDecorationStyle: "solid",
   },
   priceNeeds: {
     color: colors.danger,

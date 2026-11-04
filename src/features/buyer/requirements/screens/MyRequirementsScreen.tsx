@@ -455,14 +455,14 @@ const styles = StyleSheet.create({
   withdrawAction: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.danger,
+    backgroundColor: colors.dangerBg,
     borderRadius: 8,
   },
   withdrawText: {
     fontFamily: fonts.bodyBold,
     fontSize: 12,
     fontWeight: "600",
-    color: colors.onPrimary,
+    color: colors.danger,
   },
   withdrawBusy: {
     opacity: 0.6,

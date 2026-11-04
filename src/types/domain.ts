@@ -33,6 +33,7 @@ export interface Listing {
   category: Category;
   item: string;
   quality: string;
+  qualityId?: string | null;
   weight: string;
   weightKg?: number | null;
   seller: string;

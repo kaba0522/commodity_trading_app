@@ -6,7 +6,7 @@ import { getFriendlyApiError } from "@/core/api/client";
 import { cloudinaryUploadFile } from "@/core/api/cloudinary";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAddListing } from "@/features/seller/listings/hooks/useAddListing";
-import { QUALITY_GRADES } from "@/features/seller/listings/schemas/listingSchemas";
+import { useCategoryQualities } from "@/features/shared/catalog/hooks/useCategoryQualities";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { Image } from "expo-image";
@@ -113,7 +113,14 @@ export function AddListingScreen() {
     editListingLoading,
     editListingError,
     retryEditListing,
+    listingQualityLabel,
   } = useAddListing(editListingId);
+  const {
+    qualities,
+    isLoading: qualitiesLoading,
+    error: qualitiesError,
+    retry: retryQualities,
+  } = useCategoryQualities(editListingId ? null : values.categoryId || null);
   const photos = values.photoUrls;
   const sampleVideo = values.videoUrls[0] ?? null;
 
@@ -125,6 +132,8 @@ export function AddListingScreen() {
   const selectedCommodityName = values.commodityId
     ? (commodityNameById.get(values.commodityId) ?? "")
     : "";
+  const selectedQualityName =
+    qualities.find((quality) => quality.id === values.qualityId)?.name ?? "";
   const commodityPlaceholder = !values.categoryId
     ? "Select a category first"
     : commoditiesLoading
@@ -307,7 +316,10 @@ export function AddListingScreen() {
             <>
               <ReadOnlyField label="Category" value={selectedCategoryName} />
               <ReadOnlyField label="Commodity" value={selectedCommodityName} />
-              <ReadOnlyField label="Quality grade" value={values.quality} />
+              <ReadOnlyField
+                label="Quality grade"
+                value={listingQualityLabel}
+              />
             </>
           ) : (
             <>
@@ -344,14 +356,53 @@ export function AddListingScreen() {
                 }}
                 error={fieldErrors.commodityId ?? null}
               />
-              <Dropdown
-                label="Quality grade"
-                placeholder="Select a quality grade"
-                value={values.quality}
-                options={QUALITY_GRADES}
-                onChange={(v) => setField("quality", v)}
-                error={fieldErrors.quality ?? null}
-              />
+              {values.categoryId &&
+              !qualitiesLoading &&
+              !qualitiesError &&
+              qualities.length > 0 ? (
+                <Dropdown
+                  label="Quality grade"
+                  placeholder="Select a quality grade"
+                  value={selectedQualityName}
+                  options={qualities.map((quality) => quality.name)}
+                  onChange={(name) => {
+                    const found = qualities.find(
+                      (quality) => quality.name === name,
+                    );
+                    if (found) setField("qualityId", found.id);
+                  }}
+                  error={fieldErrors.qualityId ?? null}
+                />
+              ) : (
+                <View>
+                  <Text style={styles.label}>Quality grade</Text>
+                  <Text style={styles.readOnlyValue}>
+                    {!values.categoryId
+                      ? "Select a category first"
+                      : qualitiesLoading
+                        ? "Loading qualities…"
+                        : qualitiesError
+                          ? "Could not load qualities"
+                          : "No qualities configured for this category. Contact an admin to add qualities before publishing."}
+                  </Text>
+                  {fieldErrors.qualityId ? (
+                    <Text style={styles.fieldError}>
+                      {fieldErrors.qualityId}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+              {qualitiesError ? (
+                <Pressable
+                  onPress={retryQualities}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading qualities"
+                >
+                  <Text style={styles.fieldError}>
+                    {qualitiesError} Tap to retry.
+                  </Text>
+                </Pressable>
+              ) : null}
             </>
           )}
         </View>
@@ -401,7 +452,7 @@ export function AddListingScreen() {
                 onChangeText={(v) =>
                   setField("price", v.replace(/[^0-9.]/g, ""))
                 }
-                placeholder="Leave blank = open to offers"
+                placeholder=""
                 placeholderTextColor={colors.muted}
                 keyboardType="decimal-pad"
               />
@@ -696,7 +747,15 @@ export function AddListingScreen() {
           title={editListingId ? "Save changes" : "Publish listing"}
           onPress={handleSubmit}
           loading={isLoading}
-          disabled={isPickingMedia || isUploading}
+          disabled={
+            isPickingMedia ||
+            isUploading ||
+            (!editListingId &&
+              Boolean(values.categoryId) &&
+              (qualitiesLoading ||
+                qualitiesError !== null ||
+                qualities.length === 0))
+          }
         />
       </ScrollView>
     </KeyboardAvoidingView>

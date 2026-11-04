@@ -169,7 +169,7 @@ export function ListingDetailScreen() {
                 accessibilityLabel="Withdraw listing"
               >
                 {isWithdrawing ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                  <ActivityIndicator size="small" color={colors.danger} />
                 ) : (
                   <Text style={styles.withdrawActionText}>Withdraw</Text>
                 )}
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   withdrawAction: {
-    backgroundColor: colors.danger,
+    backgroundColor: colors.dangerBg,
   },
   editActionText: {
     color: colors.onPrimary,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   withdrawActionText: {
-    color: colors.onPrimary,
+    color: colors.danger,
     fontSize: 13,
     fontWeight: "700",
   },

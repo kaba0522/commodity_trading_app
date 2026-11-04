@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 export type AddListingField =
   | "categoryId"
   | "commodityId"
-  | "quality"
+  | "qualityId"
   | "quantity"
   | "weightKg"
   | "price"
@@ -29,7 +29,7 @@ export type AddListingField =
 export interface AddListingValues {
   categoryId: string;
   commodityId: string;
-  quality: string;
+  qualityId: string;
   quantity: string;
   weightKg: string;
   price: string;
@@ -47,7 +47,7 @@ export type AddListingFieldErrors = Partial<Record<AddListingField, string>>;
 const INITIAL_VALUES: AddListingValues = {
   categoryId: "",
   commodityId: "",
-  quality: "",
+  qualityId: "",
   quantity: "",
   weightKg: "30",
   price: "",
@@ -84,6 +84,7 @@ export function useAddListing(editListingId?: string) {
     error: editListingError,
     retry: retryEditListing,
   } = useListingDetail(editListingId);
+  const listingQualityLabel = listingToEdit?.quality ?? "";
 
   const { categories, isLoading: categoriesLoading } = useCommodityCategories();
   const { commodities, isLoading: commoditiesLoading } = useCommodities(
@@ -111,7 +112,7 @@ export function useAddListing(editListingId?: string) {
     setValues({
       categoryId: listingToEdit.categoryId ?? "",
       commodityId: listingToEdit.commodityId ?? "",
-      quality: listingToEdit.quality,
+      qualityId: listingToEdit.qualityId ?? "",
       quantity: listingToEdit.bags != null ? String(listingToEdit.bags) : "",
       weightKg:
         listingToEdit.weightKg != null ? String(listingToEdit.weightKg) : "",
@@ -133,17 +134,25 @@ export function useAddListing(editListingId?: string) {
     (field: AddListingField, value: string | boolean) => {
       setValues((prev) => {
         const next = { ...prev, [field]: value } as AddListingValues;
-        // Changing category invalidates the selected commodity.
+        // Changing category invalidates its commodity and quality selections.
         if (field === "categoryId" && value !== prev.categoryId) {
           next.commodityId = "";
+          next.qualityId = "";
         }
         return next;
       });
       setFieldErrors((prev) => {
-        if (!prev[field] && !(field === "categoryId" && prev["commodityId"])) return prev;
+        if (
+          !prev[field] &&
+          !(field === "categoryId" && prev["commodityId"]) &&
+          !(field === "categoryId" && prev["qualityId"])
+        ) return prev;
         const next = { ...prev };
         delete next[field];
-        if (field === "categoryId") delete next["commodityId"];
+        if (field === "categoryId") {
+          delete next["commodityId"];
+          delete next["qualityId"];
+        }
         return next;
       });
     },
@@ -187,7 +196,7 @@ export function useAddListing(editListingId?: string) {
       : addListingSchema.safeParse({
           categoryId: values.categoryId,
           commodityId: values.commodityId,
-          quality: values.quality,
+          qualityId: values.qualityId,
           quantity: values.quantity,
           weightKg: values.weightKg,
           price: values.price,
@@ -218,7 +227,7 @@ export function useAddListing(editListingId?: string) {
       const input: CreateListingInput = {
         categoryId: values.categoryId.trim(),
         commodityId: values.commodityId.trim(),
-        quality: values.quality.trim(),
+        qualityId: values.qualityId.trim(),
         quantityBags: Number(values.quantity.trim()),
         weightKg: values.weightKg.trim()
           ? Number(values.weightKg.trim())
@@ -309,5 +318,6 @@ export function useAddListing(editListingId?: string) {
     defaultPaymentTerms,
     categoryNameById,
     commodityNameById,
+    listingQualityLabel,
   };
 }

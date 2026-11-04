@@ -12,12 +12,12 @@ import type { Category, Listing, ListingStatus } from "@/types/domain";
  * Real backend: `router.use(authenticate)` — every call needs the session token.
  * Field names mirror `validateSellListingInput` in the backend
  * (`listing.validation.js`): categoryId/commodityId UUIDs, quantityBags
- * required, weightKg/price optional, quality one of the backend grades.
+ * required, weightKg/price optional, and qualityId scoped to the category.
  */
 export interface CreateListingInput {
   categoryId: string;
   commodityId: string;
-  quality?: string | null;
+  qualityId: string;
   quantityBags: number;
   weightKg?: number | null;
   /** Price per bag in rupees; null = shell listing without price. */
@@ -64,6 +64,7 @@ export interface BulkPreviewRow {
     commodityMatch: "exact" | "fuzzy" | "unresolved";
     commoditySuggestion: BulkPreviewSuggestion | null;
     itemName: string | null;
+    qualityId: string | null;
     quality: string | null;
     quantityBags: number | null;
     weightKg: number | null;
@@ -89,7 +90,7 @@ export interface BulkConfirmRow {
   rowIndex?: number;
   categoryId: string;
   commodityId: string;
-  quality?: string | null;
+  qualityId: string;
   quantityBags: number;
   weightKg?: number | null;
   price?: number | null;
@@ -113,7 +114,7 @@ function toPayload(input: CreateListingInput): Record<string, unknown> {
     commodityId: input.commodityId,
     quantityBags: input.quantityBags,
   };
-  if (input.quality) body["quality"] = input.quality;
+  body["qualityId"] = input.qualityId;
   if (input.weightKg != null) body["weightKg"] = input.weightKg;
   if (input.price != null) body["price"] = input.price;
   if (input.moisture) body["moisture"] = input.moisture;
@@ -469,6 +470,7 @@ function normalizeListing(
     category: category as Category,
     item,
     quality: pickString(obj, "quality"),
+    qualityId: toStringId(obj["qualityId"] ?? obj["quality_id"]),
     weight,
     weightKg,
     seller,
