@@ -67,6 +67,7 @@ export function AppTabBar({ items, active, onPress }: AppTabBarProps) {
             accessibilityLabel={label}
             accessibilityState={{ selected: focused }}
           >
+            {focused ? <View style={styles.activeIndicator} /> : null}
             <Icon color={color} />
             <Text
               style={[styles.label, compact && styles.labelCompact, { color }]}
@@ -93,10 +94,20 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
+    position: "relative",
     flexDirection: "column",
     alignItems: "center",
     gap: 3,
     paddingVertical: 4,
+  },
+  activeIndicator: {
+    position: "absolute",
+    top: -8,
+    left: 10,
+    right: 10,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
   },
   label: {
     fontSize: 11.5,

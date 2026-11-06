@@ -80,6 +80,8 @@ export function ListingDetailScreen() {
   const [showRateEditor, setShowRateEditor] = useState(false);
   const [isSavingRate, setIsSavingRate] = useState(false);
   const [rateError, setRateError] = useState<string | null>(null);
+  const hasCurrentPrice =
+    listing !== null && isActiveListing(listing) && listing.price > 0;
 
   async function withdrawListing() {
     if (!listing || isWithdrawing) return;
@@ -89,10 +91,13 @@ export function ListingDetailScreen() {
       await runWithAuth((token) =>
         listingsApi.withdraw(String(listing.id), token),
       );
-      router.back();
+      router.replace({
+        pathname: "/add-listing",
+        params: { filter: "unlisted" },
+      });
     } catch (cause) {
       setWithdrawError(
-        getFriendlyApiError(cause, "Could not withdraw this listing"),
+        getFriendlyApiError(cause, "Could not unlist this listing"),
       );
     } finally {
       setIsWithdrawing(false);
@@ -164,12 +169,12 @@ export function ListingDetailScreen() {
                 }}
                 disabled={isWithdrawing}
                 accessibilityRole="button"
-                accessibilityLabel="Withdraw listing"
+                accessibilityLabel="Unlist listing"
               >
                 {isWithdrawing ? (
                   <ActivityIndicator size="small" color={colors.danger} />
                 ) : (
-                  <Text style={styles.withdrawActionText}>Withdraw</Text>
+                  <Text style={styles.withdrawActionText}>Unlist</Text>
                 )}
               </Pressable>
             ) : null}
@@ -216,7 +221,7 @@ export function ListingDetailScreen() {
                   ]}
                 >
                   {listing.status === "withdrawn"
-                    ? "Withdrawn"
+                    ? "Unlisted"
                     : listing.status === "traded"
                       ? "Traded"
                       : listing.status === "sold_out"
@@ -236,22 +241,32 @@ export function ListingDetailScreen() {
           <View style={styles.priceCard}>
             <View style={styles.priceHeader}>
               <Text style={styles.kicker}>Price per bag</Text>
-              <Pressable
+              {hasCurrentPrice ? (
+                <Pressable
+                  onPress={() => {
+                    setRateError(null);
+                    setShowRateEditor(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit listing price"
+                  hitSlop={8}
+                >
+                  <Text style={styles.priceEdit}>Edit</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {hasCurrentPrice ? (
+              <Text style={styles.price}>{priceLabel(listing.price)}</Text>
+            ) : (
+              <Button
+                title="Add Rate"
                 onPress={() => {
                   setRateError(null);
                   setShowRateEditor(true);
                 }}
-                accessibilityRole="button"
-                accessibilityLabel="Edit listing price"
-                hitSlop={8}
-              >
-                <Text style={styles.priceEdit}>Edit</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.price}>
-              {listing.price > 0 ? priceLabel(listing.price) : "N/A"}
-            </Text>
-            {listing.priceValidUntil ? (
+              />
+            )}
+            {hasCurrentPrice && listing.priceValidUntil ? (
               <Text style={styles.expiryText}>
                 {priceExpiryLabel(listing.priceValidUntil)}
               </Text>
@@ -305,13 +320,13 @@ export function ListingDetailScreen() {
       )}
       <ConfirmSheet
         visible={showWithdrawConfirm}
-        title="Withdraw listing?"
+        title="Unlist listing?"
         message={
           listing
             ? `${listing.item} will be taken off the market.`
             : "This listing will be taken off the market."
         }
-        confirmTitle="Withdraw"
+        confirmTitle="Unlist"
         cancelTitle="Keep listing"
         error={withdrawError}
         isBusy={isWithdrawing}
@@ -330,7 +345,7 @@ export function ListingDetailScreen() {
           category={listing.category}
           weight={listing.weight}
           item={listing.item}
-          price={listing.price > 0 ? listing.price : null}
+          price={hasCurrentPrice ? listing.price : null}
           saving={isSavingRate}
           error={rateError}
           onClose={() => {

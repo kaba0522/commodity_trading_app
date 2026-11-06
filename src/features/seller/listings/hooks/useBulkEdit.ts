@@ -7,7 +7,8 @@ export interface BulkRow {
   id: string;
   item: string;
   category: string;
-  weight: string;
+  quality: string;
+  bags: number | null;
   /** Null = no price on the payload, shown as N/A. */
   price: number | null;
   /** Backend `status` split (`"active"` vs `"price_expired"`). */
@@ -53,7 +54,8 @@ export function useBulkEdit() {
           id: String(l.id),
           item: l.item,
           category: l.category,
-          weight: l.weight,
+          quality: l.quality,
+          bags: l.bags ?? null,
           price: l.price > 0 ? l.price : null,
           active: isActiveListing(l),
         })),

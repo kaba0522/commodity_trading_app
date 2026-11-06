@@ -65,7 +65,10 @@ const INITIAL_VALUES: AddListingValues = {
  * quantity (required), weight/price (optional), then creates or updates the
  * listing. `itemName` is derived by the backend from the selected commodity.
  */
-export function useAddListing(editListingId?: string) {
+export function useAddListing(
+  editListingId?: string,
+  relistListingId?: string,
+) {
   const { runWithAuth, session } = useAuth();
   const defaultPaymentTerms = session?.user.defaultPaymentTerms ?? null;
   const [values, setValues] = useState<AddListingValues>(() => ({
@@ -79,12 +82,12 @@ export function useAddListing(editListingId?: string) {
   const [isLoading, setIsLoading] = useState(false);
   const initializedListingId = useRef<string | null>(null);
   const {
-    listing: listingToEdit,
+    listing: sourceListing,
     isLoading: editListingLoading,
     error: editListingError,
     retry: retryEditListing,
-  } = useListingDetail(editListingId);
-  const listingQualityLabel = listingToEdit?.quality ?? "";
+  } = useListingDetail(editListingId ?? relistListingId);
+  const listingQualityLabel = sourceListing?.quality ?? "";
 
   const { categories, isLoading: categoriesLoading } = useCommodityCategories();
   const { commodities, isLoading: commoditiesLoading } = useCommodities(
@@ -102,33 +105,35 @@ export function useAddListing(editListingId?: string) {
 
   useEffect(() => {
     if (
-      !editListingId ||
-      !listingToEdit ||
-      initializedListingId.current === editListingId
+      (!editListingId && !relistListingId) ||
+      !sourceListing ||
+      initializedListingId.current === (editListingId ?? relistListingId)
     ) {
       return;
     }
-    initializedListingId.current = editListingId;
+    initializedListingId.current = editListingId ?? relistListingId ?? null;
     setValues({
-      categoryId: listingToEdit.categoryId ?? "",
-      commodityId: listingToEdit.commodityId ?? "",
-      qualityId: listingToEdit.qualityId ?? "",
-      quantity: listingToEdit.bags != null ? String(listingToEdit.bags) : "",
+      categoryId: sourceListing.categoryId ?? "",
+      commodityId: sourceListing.commodityId ?? "",
+      qualityId: sourceListing.qualityId ?? "",
+      quantity: sourceListing.bags != null ? String(sourceListing.bags) : "",
       weightKg:
-        listingToEdit.weightKg != null ? String(listingToEdit.weightKg) : "",
-      price: listingToEdit.price > 0 ? String(listingToEdit.price) : "",
-      moisture: listingToEdit.moisture ?? "",
-      color: listingToEdit.color ?? "",
-      size: listingToEdit.size ?? "",
+        sourceListing.weightKg != null ? String(sourceListing.weightKg) : "",
+      price: sourceListing.price > 0 ? String(sourceListing.price) : "",
+      moisture: sourceListing.moisture ?? "",
+      color: sourceListing.color ?? "",
+      size: sourceListing.size ?? "",
       paymentTerms:
-        listingToEdit.paymentTerms != null
-          ? String(listingToEdit.paymentTerms)
-          : "",
-      notes: listingToEdit.notes ?? "",
-      photoUrls: listingToEdit.photoUrls ?? [],
-      videoUrls: listingToEdit.videoUrls ?? [],
+        sourceListing.paymentTerms != null
+          ? String(sourceListing.paymentTerms)
+          : defaultPaymentTerms !== null
+            ? String(defaultPaymentTerms)
+            : "",
+      notes: sourceListing.notes ?? "",
+      photoUrls: sourceListing.photoUrls ?? [],
+      videoUrls: sourceListing.videoUrls ?? [],
     });
-  }, [editListingId, listingToEdit]);
+  }, [defaultPaymentTerms, editListingId, relistListingId, sourceListing]);
 
   const setField = useCallback(
     (field: AddListingField, value: string | boolean) => {
@@ -245,20 +250,20 @@ export function useAddListing(editListingId?: string) {
       };
       setFieldErrors({});
       if (editListingId) {
-        if (!listingToEdit) {
+        if (!sourceListing) {
           setError("Could not load the listing to compare changes.");
           return false;
         }
         const patch: Partial<CreateListingInput> = {};
-        if (input.quantityBags !== listingToEdit.bags) {
+        if (input.quantityBags !== sourceListing.bags) {
           patch.quantityBags = input.quantityBags;
         }
         if (
-          input.price !== (listingToEdit.price > 0 ? listingToEdit.price : null)
+          input.price !== (sourceListing.price > 0 ? sourceListing.price : null)
         ) {
           patch.price = input.price;
         }
-        if (input.notes !== (listingToEdit.notes || null)) {
+        if (input.notes !== (sourceListing.notes || null)) {
           patch.notes = input.notes;
         }
         if (Object.keys(patch).length > 0) {

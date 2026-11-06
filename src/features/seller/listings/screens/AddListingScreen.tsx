@@ -16,6 +16,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -85,12 +86,19 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
  * itemName is derived server-side from the commodity, so there is no free-text item field.
  */
 export function AddListingScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, relistId } = useLocalSearchParams<{
+    id?: string;
+    relistId?: string;
+  }>();
   const editListingId = typeof id === "string" ? id : undefined;
+  const relistListingId =
+    typeof relistId === "string" ? relistId : undefined;
+  const sourceListingId = editListingId ?? relistListingId;
   const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
   const [isPickingMedia, setIsPickingMedia] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
   const { runWithAuth } = useAuth();
   const {
     values,
@@ -112,13 +120,15 @@ export function AddListingScreen() {
     editListingError,
     retryEditListing,
     listingQualityLabel,
-  } = useAddListing(editListingId);
+  } = useAddListing(editListingId, relistListingId);
   const {
     qualities,
     isLoading: qualitiesLoading,
     error: qualitiesError,
     retry: retryQualities,
-  } = useCategoryQualities(editListingId ? null : values.categoryId || null);
+  } = useCategoryQualities(
+    sourceListingId ? null : values.categoryId || null,
+  );
   const photos = values.photoUrls;
   const sampleVideo = values.videoUrls[0] ?? null;
 
@@ -253,10 +263,12 @@ export function AddListingScreen() {
         pathname: "/listing/[id]",
         params: { id: editListingId },
       });
+    } else if (saved) {
+      setShowPublishConfirmation(true);
     }
   }
 
-  if (editListingId && editListingLoading) {
+  if (sourceListingId && editListingLoading) {
     return (
       <View style={[styles.flex, styles.centered]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -265,7 +277,7 @@ export function AddListingScreen() {
     );
   }
 
-  if (editListingId && editListingError) {
+  if (sourceListingId && editListingError) {
     return (
       <View
         style={[
@@ -274,7 +286,11 @@ export function AddListingScreen() {
           { paddingTop: spacing.md },
         ]}
       >
-        <BackButton accessibilityLabel="Back to listing details" />
+        <BackButton
+          accessibilityLabel={
+            editListingId ? "Back to listing details" : "Back to my listings"
+          }
+        />
         <FormStatus kind="error" message={editListingError} />
         <Button title="Retry" variant="secondary" onPress={retryEditListing} />
       </View>
@@ -300,17 +316,23 @@ export function AddListingScreen() {
           />
         </View>
         <Text style={styles.title}>
-          {editListingId ? "Edit listing" : "Add listing"}
+          {editListingId
+            ? "Edit listing"
+            : relistListingId
+              ? "Relist commodity"
+              : "Add listing"}
         </Text>
         <Text style={styles.subtitle}>
           {editListingId
             ? "Update the details for your listing."
+            : relistListingId
+              ? "Review the previous listing details and publish it again."
             : "Publish today&apos;s price for one commodity."}
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Product details</Text>
-          {editListingId ? (
+          {sourceListingId ? (
             <>
               <ReadOnlyField label="Category" value={selectedCategoryName} />
               <ReadOnlyField label="Commodity" value={selectedCommodityName} />
@@ -739,10 +761,14 @@ export function AddListingScreen() {
         </View>
 
         {error ? <FormStatus kind="error" message={error} /> : null}
-        {success ? <FormStatus kind="success" message={success} /> : null}
-
         <Button
-          title={editListingId ? "Save changes" : "Publish listing"}
+          title={
+            editListingId
+              ? "Save changes"
+              : relistListingId
+                ? "Relist listing"
+                : "Publish listing"
+          }
           onPress={handleSubmit}
           loading={isLoading}
           disabled={
@@ -756,6 +782,45 @@ export function AddListingScreen() {
           }
         />
       </ScrollView>
+      <Modal
+        visible={showPublishConfirmation}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPublishConfirmation(false)}
+      >
+        <View style={styles.confirmationOverlay}>
+          <View
+            style={styles.confirmationCard}
+            accessibilityViewIsModal
+            accessibilityRole="alert"
+          >
+            <View style={styles.confirmationIcon}>
+              <Text style={styles.confirmationCheck}>✓</Text>
+            </View>
+            <Text style={styles.confirmationTitle}>Listing published!</Text>
+            <Text style={styles.confirmationMessage}>{success}</Text>
+            <Text style={styles.confirmationHint}>
+              You can continue adding another listing or finish here.
+            </Text>
+            <Pressable
+              style={styles.continueButton}
+              onPress={() => setShowPublishConfirmation(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.continueButtonText}>
+                Continue with add listing
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.okButton}
+              onPress={() => setShowPublishConfirmation(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.okButtonText}>OK</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -777,6 +842,83 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
+  },
+  confirmationOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.48)",
+  },
+  confirmationCard: {
+    width: "100%",
+    maxWidth: 420,
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.xl,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmationIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.successBg,
+    marginBottom: spacing.xs,
+  },
+  confirmationCheck: {
+    color: colors.success,
+    fontSize: 32,
+    fontWeight: "800",
+  },
+  confirmationTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    color: colors.text,
+    textAlign: "center",
+  },
+  confirmationMessage: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.text,
+    textAlign: "center",
+  },
+  confirmationHint: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.muted,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  continueButton: {
+    width: "100%",
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  continueButtonText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  okButton: {
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  okButtonText: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "600",
   },
   card: {
     gap: spacing.md,

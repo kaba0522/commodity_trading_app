@@ -571,15 +571,18 @@ export const listingsApi = {
    * `side=SELL` and NO `userId` gets `effectiveUserId = own id` — own rows
    * only, never pass another seller's `userId` (403). `status` defaults to
    * `active` server-side, so request `active,price_expired,na` explicitly —
-   * otherwise the Expired tab is always empty. `limit=100` (backend max,
-   * default is 20) so the dashboard isn't truncated.
+   * otherwise the Expired listings are always empty. The home screen can
+   * include withdrawn listings for its Unlisted filter. `limit=100` (backend
+   * max, default is 20) so the dashboard isn't truncated.
    */
-  async listMine(token: string): Promise<Listing[]> {
+  async listMine(token: string, includeWithdrawn = false): Promise<Listing[]> {
     const [raw, maps] = await Promise.all([
       apiFetch<unknown>(
         apiUrl(
           LISTINGS_ENDPOINTS.list("SELL", {
-            status: "active,price_expired,na",
+            status: includeWithdrawn
+              ? "active,price_expired,na,withdrawn"
+              : "active,price_expired,na",
             limit: 100,
           }),
         ),

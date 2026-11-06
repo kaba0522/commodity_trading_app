@@ -20,10 +20,11 @@ export interface HomeRow {
   price: number | null;
   /** Backend `status` split — only `"active"` counts as live. */
   active: boolean;
+  unlisted: boolean;
 }
 
-/** `"live"` = priced only, `"needs"` = awaiting a price, null = everything. */
-export type HomeFilter = "live" | "needs" | null;
+/** Listing filter for live, unpriced, and seller-unlisted listings. */
+export type HomeFilter = "live" | "needs" | "unlisted" | null;
 
 /** `0`/missing prices are "no price", never a real ₹0 quote. */
 function toHomeRow(l: Listing): HomeRow {
@@ -37,15 +38,15 @@ function toHomeRow(l: Listing): HomeRow {
     bags: l.bags ?? 0,
     price: active && l.price > 0 ? l.price : null,
     active,
+    unlisted: l.status === "withdrawn",
   };
 }
 
 /**
  * Seller home data (Seller App.html `isHome` → "My Listings"): the logged-in
- * seller's own listings via `GET /listings?side=SELL&status=active,price_expired,na`
- * (backend defaults `userId` to the caller for the seller role — own rows
- * only). Each row is priced (live) or awaiting today's rate; the screen
- * filters/groups them and edits rates inline via `PATCH /listings/:id`.
+ * seller's own listings, including withdrawn rows for the Unlisted filter.
+ * The backend defaults `userId` to the caller for the seller role — own rows
+ * only. The screen filters/groups rows and edits live rates inline.
  */
 export function useSellerHome() {
   const { runWithAuth } = useAuth();
@@ -66,7 +67,9 @@ export function useSellerHome() {
       // runWithAuth refreshes the 15m access token on 401 and retries once,
       // so reopening the app after a while never shows "unauthorized".
       // listMine = seller-associated rows only; status drives live vs needs-price.
-      setListings(await runWithAuth((token) => listingsApi.listMine(token)));
+      setListings(
+        await runWithAuth((token) => listingsApi.listMine(token, true)),
+      );
     } catch (e) {
       setError(getFriendlyApiError(e, "Could not load today's listings"));
     } finally {
@@ -114,15 +117,17 @@ export function useSellerHome() {
   );
 
   const rows = useMemo(() => listings.map(toHomeRow), [listings]);
+  const activeRows = useMemo(() => rows.filter((r) => !r.unlisted), [rows]);
+  const unlistedCount = rows.length - activeRows.length;
   const liveCount = useMemo(
-    () => rows.filter((r) => r.price !== null).length,
-    [rows],
+    () => activeRows.filter((r) => r.price !== null).length,
+    [activeRows],
   );
-  const needsCount = rows.length - liveCount;
-  const allPriced = rows.length > 0 && needsCount === 0;
+  const needsCount = activeRows.length - liveCount;
+  const allPriced = activeRows.length > 0 && needsCount === 0;
   // Every listing price-expired (e.g. after the 2 AM reset): rows kept,
   // all awaiting fresh prices.
-  const expired = rows.length > 0 && liveCount === 0;
+  const expired = activeRows.length > 0 && liveCount === 0;
   const formattedExpiryTime = priceExpiryTime
     ? (() => {
         const [hour, minute] = priceExpiryTime.split(":").map(Number);
@@ -170,6 +175,7 @@ export function useSellerHome() {
 
   return {
     rows,
+    unlistedCount,
     liveCount,
     needsCount,
     allPriced,

@@ -8,7 +8,7 @@ import {
 import { RateEditSheet } from "@/features/seller/listings/components/RateEditSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,10 +30,12 @@ interface CategoryGroup {
  * rate sheet on the price, Bulk edit in the header and an add-listing FAB.
  */
 export function SellerHomeScreen() {
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
   const [filter, setFilter] = useState<HomeFilter>(null);
   const [rateTarget, setRateTarget] = useState<HomeRow | null>(null);
   const {
     rows,
+    unlistedCount,
     liveCount,
     needsCount,
     allPriced,
@@ -51,14 +53,25 @@ export function SellerHomeScreen() {
 
   // Prototype `homeFilter`: a "needs" filter that just became empty clears itself.
   const activeFilter: HomeFilter =
-    needsCount === 0 && filter === "needs" ? null : filter;
+    filterParam === "unlisted"
+      ? "unlisted"
+      : needsCount === 0 && filter === "needs"
+        ? null
+        : filter;
+
+  function toggleFilter(target: Exclude<HomeFilter, null>) {
+    router.setParams({ filter: undefined });
+    setFilter((current) => (current === target ? null : target));
+  }
   const visibleRows = useMemo(
     () =>
       activeFilter === "live"
-        ? rows.filter((r) => r.price !== null)
+        ? rows.filter((r) => !r.unlisted && r.price !== null)
         : activeFilter === "needs"
-          ? rows.filter((r) => r.price === null)
-          : rows,
+          ? rows.filter((r) => !r.unlisted && r.price === null)
+          : activeFilter === "unlisted"
+            ? rows.filter((r) => r.unlisted)
+            : rows.filter((r) => !r.unlisted),
     [rows, activeFilter],
   );
 
@@ -154,7 +167,7 @@ export function SellerHomeScreen() {
               styles.filterCard,
               activeFilter === "live" && styles.filterCardLive,
             ]}
-            onPress={() => setFilter((f) => (f === "live" ? null : "live"))}
+            onPress={() => toggleFilter("live")}
             accessibilityRole="button"
             accessibilityState={{ selected: activeFilter === "live" }}
             accessibilityLabel={`Show live listings, ${liveCount}`}
@@ -184,7 +197,7 @@ export function SellerHomeScreen() {
               allPriced && styles.filterCardAllPriced,
               activeFilter === "needs" && styles.filterCardNeedsOn,
             ]}
-            onPress={() => setFilter((f) => (f === "needs" ? null : "needs"))}
+            onPress={() => toggleFilter("needs")}
             disabled={allPriced}
             accessibilityRole="button"
             accessibilityState={{ selected: activeFilter === "needs" }}
@@ -214,6 +227,36 @@ export function SellerHomeScreen() {
               numberOfLines={1}
             >
               {allPriced ? "All priced ✓" : "Needs price"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.filterCard,
+              styles.filterCardUnlisted,
+              activeFilter === "unlisted" && styles.filterCardLive,
+            ]}
+            onPress={() => toggleFilter("unlisted")}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeFilter === "unlisted" }}
+            accessibilityLabel={`Show unlisted listings, ${unlistedCount}`}
+          >
+            <Text
+              style={[
+                styles.filterCount,
+                activeFilter === "unlisted" && styles.filterTextOn,
+              ]}
+            >
+              {unlistedCount}
+            </Text>
+            <Text
+              style={[
+                styles.filterLabel,
+                activeFilter === "unlisted" && styles.filterTextOn,
+              ]}
+              numberOfLines={1}
+            >
+              Unlisted
             </Text>
           </Pressable>
         </View>
@@ -261,29 +304,47 @@ export function SellerHomeScreen() {
                           </Text>
                         ) : null}
                       </Pressable>
-                      <Pressable
-                        style={styles.rowPrice}
-                        onPress={() => openRateSheet(row)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Edit rate for ${row.item}`}
-                      >
-                        <Text
-                          style={[
-                            styles.priceText,
-                            row.price === null && styles.priceNeeds,
-                          ]}
+                      {row.unlisted ? (
+                        <Pressable
+                          style={styles.relistButton}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/add-listing-form",
+                              params: { relistId: row.id },
+                            })
+                          }
+                          accessibilityRole="button"
+                          accessibilityLabel={`Relist ${row.item}`}
                         >
-                          {row.price === null
-                            ? "Add Rate"
-                            : priceLabel(row.price)}
-                        </Text>
-                        {row.price === null ? (
-                          <Text style={styles.priceHint}>to Make it Live</Text>
-                        ) : null}
-                        {savedId === row.id ? (
-                          <Text style={styles.savedHint}>✓ Saved</Text>
-                        ) : null}
-                      </Pressable>
+                          <Text style={styles.relistButtonText}>Relist</Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          style={styles.rowPrice}
+                          onPress={() => openRateSheet(row)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${row.price === null ? "Add" : "Edit"} rate for ${row.item}`}
+                        >
+                          <Text
+                            style={[
+                              styles.priceText,
+                              row.price === null
+                                ? styles.addRateButton
+                                : styles.priceValue,
+                            ]}
+                          >
+                            {row.price === null
+                              ? "Add Rate"
+                              : priceLabel(row.price)}
+                          </Text>
+                          {row.price === null ? (
+                            <Text style={styles.priceHint}>to Make it Live</Text>
+                          ) : null}
+                          {savedId === row.id ? (
+                            <Text style={styles.savedHint}>✓ Saved</Text>
+                          ) : null}
+                        </Pressable>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -292,9 +353,11 @@ export function SellerHomeScreen() {
 
             {visibleRows.length === 0 ? (
               <Text style={styles.empty}>
-                {rows.length === 0
-                  ? "No listings yet — tap + to add your first one."
-                  : "Nothing here right now."}
+                {activeFilter === "unlisted"
+                  ? "You have no unlisted listings."
+                  : rows.length === 0
+                    ? "No listings yet — tap + to add your first one."
+                    : "Nothing here right now."}
               </Text>
             ) : null}
           </>
@@ -432,19 +495,21 @@ const styles = StyleSheet.create({
   },
   filters: {
     flexDirection: "row",
-    gap: 10,
+    gap: 6,
   },
   filterCard: {
     flex: 1,
-    flexDirection: "row",
+    minWidth: 0,
+    flexDirection: "column",
     alignItems: "center",
-    gap: 10,
-    borderRadius: 16,
+    justifyContent: "center",
+    gap: 3,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   filterCardLive: {
     backgroundColor: colors.primaryDark,
@@ -453,6 +518,9 @@ const styles = StyleSheet.create({
   filterCardNeeds: {
     backgroundColor: colors.dangerBg,
     borderColor: colors.danger,
+  },
+  filterCardUnlisted: {
+    backgroundColor: colors.surface,
   },
   filterCardNeedsOn: {
     backgroundColor: colors.danger,
@@ -463,17 +531,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   filterCount: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "800",
     lineHeight: 26,
     color: colors.text,
   },
   filterLabel: {
-    flexShrink: 1,
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: "600",
     lineHeight: 14,
     color: colors.text,
+    textAlign: "center",
   },
   filterNeedsText: {
     color: colors.danger,
@@ -580,11 +648,37 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 21,
     color: colors.text,
-    textDecorationLine: "underline",
-    textDecorationStyle: "solid",
   },
-  priceNeeds: {
+  priceValue: {
+    overflow: "hidden",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: colors.primaryTint,
+    fontSize: 14,
+    color: colors.primaryDark,
+  },
+  addRateButton: {
+    overflow: "hidden",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.dangerBg,
     color: colors.danger,
+    fontSize: 13,
+  },
+  relistButton: {
+    alignSelf: "center",
+    marginHorizontal: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  relistButtonText: {
+    color: colors.onPrimary,
+    fontSize: 12,
+    fontWeight: "700",
   },
   priceHint: {
     fontSize: 10.5,
