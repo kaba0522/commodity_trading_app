@@ -89,8 +89,9 @@ export const COMMODITIES_ENDPOINTS = {
 } as const;
 
 export const QUALITIES_ENDPOINTS = {
-  list: (categoryId: string) => {
-    const q = new URLSearchParams({ categoryId, limit: "100" });
+  // Qualities belong to a commodity (not a category). `limit=100` fills dropdowns.
+  list: (commodityId: string) => {
+    const q = new URLSearchParams({ commodityId, limit: "100" });
     return `/qualities?${q.toString()}`;
   },
 } as const;

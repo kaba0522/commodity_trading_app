@@ -166,13 +166,17 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
         next.commodityId = "";
         next.qualityId = "";
       }
+      if (field === "commodityId" && value !== prev.commodityId) {
+        next.qualityId = "";
+      }
       return next;
     });
     setFieldErrors((prev) => {
       if (
         !prev[field] &&
         !(field === "categoryId" && prev["qualityId"]) &&
-        !(field === "categoryId" && prev["commodityId"])
+        !(field === "categoryId" && prev["commodityId"]) &&
+        !(field === "commodityId" && prev["qualityId"])
       ) {
         return prev;
       }
@@ -180,6 +184,9 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
       delete next[field];
       if (field === "categoryId") {
         delete next["commodityId"];
+        delete next["qualityId"];
+      }
+      if (field === "commodityId") {
         delete next["qualityId"];
       }
       return next;

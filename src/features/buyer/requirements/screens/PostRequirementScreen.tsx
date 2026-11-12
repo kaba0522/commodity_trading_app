@@ -6,7 +6,7 @@ import {
   usePostRequirement,
   type PostRequirementValues,
 } from "@/features/buyer/requirements/hooks/usePostRequirement";
-import { useCategoryQualities } from "@/features/shared/catalog/hooks/useCategoryQualities";
+import { useCommodityQualities } from "@/features/shared/catalog/hooks/useCommodityQualities";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router } from "expo-router";
@@ -58,8 +58,8 @@ export function PostRequirementScreen({
     isLoading: qualitiesLoading,
     error: qualitiesError,
     retry: retryQualities,
-  } = useCategoryQualities(
-    isEditing ? null : values.categoryId || null,
+  } = useCommodityQualities(
+    isEditing ? null : values.commodityId || null,
   );
 
   const selectedCategoryName = values.categoryId
@@ -71,14 +71,14 @@ export function PostRequirementScreen({
   const qualityOptions = qualities.map((quality) => quality.name);
   const selectedQualityLabel =
     qualities.find((quality) => quality.id === values.qualityId)?.name ?? "";
-  const qualityPlaceholder = !values.categoryId
-    ? "Select a category first"
+  const qualityPlaceholder = !values.commodityId
+    ? "Select a commodity first"
     : qualitiesLoading
       ? "Loading qualities…"
       : qualitiesError
         ? "Could not load qualities"
         : qualities.length === 0
-        ? "No qualities configured for this category. Contact an admin to add qualities before posting."
+          ? "No qualities configured for this commodity. Contact an admin to add qualities before posting."
           : "Select a quality grade";
   const commodityPlaceholder = !values.categoryId
     ? "Select a category first"
@@ -176,10 +176,20 @@ export function PostRequirementScreen({
           )}
           {!isEditing ? (
             <>
-              {values.categoryId &&
-              !qualitiesLoading &&
-              !qualitiesError &&
-              qualities.length > 0 ? (
+              {!values.commodityId ||
+              qualitiesLoading ||
+              qualitiesError ||
+              qualities.length === 0 ? (
+                <View>
+                  <Text style={styles.label}>Quality grade</Text>
+                  <Text style={styles.helperText}>{qualityPlaceholder}</Text>
+                  {fieldErrors.qualityId ? (
+                    <Text style={styles.fieldError}>
+                      {fieldErrors.qualityId}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
                 <Dropdown
                   label="Quality grade"
                   placeholder={qualityPlaceholder}
@@ -193,16 +203,6 @@ export function PostRequirementScreen({
                   }}
                   error={fieldErrors.qualityId ?? null}
                 />
-              ) : (
-                <View>
-                  <Text style={styles.label}>Quality grade</Text>
-                  <Text style={styles.helperText}>{qualityPlaceholder}</Text>
-                  {fieldErrors.qualityId ? (
-                    <Text style={styles.fieldError}>
-                      {fieldErrors.qualityId}
-                    </Text>
-                  ) : null}
-                </View>
               )}
               {qualitiesError ? (
                 <Pressable
@@ -299,7 +299,7 @@ export function PostRequirementScreen({
           loading={isLoading}
           disabled={
             !isEditing &&
-            Boolean(values.categoryId) &&
+            Boolean(values.commodityId) &&
             (qualitiesLoading ||
               qualitiesError !== null ||
               qualities.length === 0)

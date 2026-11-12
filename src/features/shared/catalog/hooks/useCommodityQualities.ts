@@ -7,20 +7,21 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 interface QualitiesState {
-  categoryId: string | null;
+  commodityId: string | null;
   retryCount: number;
   qualities: CatalogQuality[];
   error: string | null;
 }
 
 /**
- * Loads quality choices for the selected category from the backend.
- * Passing null clears the choices until a category is selected.
+ * Loads quality choices for the selected commodity from the backend.
+ * Qualities belong to a commodity, so changing the commodity reloads them.
+ * Passing null clears the choices until a commodity is selected.
  */
-export function useCategoryQualities(categoryId: string | null) {
+export function useCommodityQualities(commodityId: string | null) {
   const { runWithAuth } = useAuth();
   const [state, setState] = useState<QualitiesState>({
-    categoryId: null,
+    commodityId: null,
     retryCount: 0,
     qualities: [],
     error: null,
@@ -29,15 +30,15 @@ export function useCategoryQualities(categoryId: string | null) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!categoryId) return;
+    if (!commodityId) return;
     (async () => {
       try {
         const qualities = await runWithAuth((token) =>
-          catalogApi.getQualities(token, categoryId),
+          catalogApi.getQualities(token, commodityId),
         );
         if (!cancelled) {
           setState({
-            categoryId,
+            commodityId,
             retryCount,
             qualities,
             error: null,
@@ -46,7 +47,7 @@ export function useCategoryQualities(categoryId: string | null) {
       } catch (cause) {
         if (!cancelled) {
           setState({
-            categoryId,
+            commodityId,
             retryCount,
             qualities: [],
             error: getFriendlyApiError(cause, "Could not load qualities"),
@@ -58,17 +59,17 @@ export function useCategoryQualities(categoryId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [categoryId, retryCount, runWithAuth]);
+  }, [commodityId, retryCount, runWithAuth]);
 
   const retry = useCallback(() => {
     setRetryCount((count) => count + 1);
   }, []);
 
   const isCurrentRequest =
-    state.categoryId === categoryId && state.retryCount === retryCount;
+    state.commodityId === commodityId && state.retryCount === retryCount;
   return {
     qualities: isCurrentRequest ? state.qualities : [],
-    isLoading: categoryId !== null && !isCurrentRequest,
+    isLoading: commodityId !== null && !isCurrentRequest,
     error: isCurrentRequest ? state.error : null,
     retry,
   };

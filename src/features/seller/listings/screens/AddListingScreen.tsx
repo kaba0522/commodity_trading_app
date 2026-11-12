@@ -6,7 +6,7 @@ import { getFriendlyApiError } from "@/core/api/client";
 import { cloudinaryUploadFile } from "@/core/api/cloudinary";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAddListing } from "@/features/seller/listings/hooks/useAddListing";
-import { useCategoryQualities } from "@/features/shared/catalog/hooks/useCategoryQualities";
+import { useCommodityQualities } from "@/features/shared/catalog/hooks/useCommodityQualities";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { Image } from "expo-image";
@@ -126,8 +126,8 @@ export function AddListingScreen() {
     isLoading: qualitiesLoading,
     error: qualitiesError,
     retry: retryQualities,
-  } = useCategoryQualities(
-    sourceListingId ? null : values.categoryId || null,
+  } = useCommodityQualities(
+    sourceListingId ? null : values.commodityId || null,
   );
   const photos = values.photoUrls;
   const sampleVideo = values.videoUrls[0] ?? null;
@@ -376,10 +376,28 @@ export function AddListingScreen() {
                 }}
                 error={fieldErrors.commodityId ?? null}
               />
-              {values.categoryId &&
-              !qualitiesLoading &&
-              !qualitiesError &&
-              qualities.length > 0 ? (
+              {!values.commodityId ||
+              qualitiesLoading ||
+              qualitiesError ||
+              qualities.length === 0 ? (
+                <View>
+                  <Text style={styles.label}>Quality grade</Text>
+                  <Text style={styles.readOnlyValue}>
+                    {!values.commodityId
+                      ? "Select a commodity first"
+                      : qualitiesLoading
+                        ? "Loading qualities…"
+                        : qualitiesError
+                          ? "Could not load qualities"
+                          : "No qualities configured for this commodity. Contact an admin to add qualities before publishing."}
+                  </Text>
+                  {fieldErrors.qualityId ? (
+                    <Text style={styles.fieldError}>
+                      {fieldErrors.qualityId}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
                 <Dropdown
                   label="Quality grade"
                   placeholder="Select a quality grade"
@@ -393,24 +411,6 @@ export function AddListingScreen() {
                   }}
                   error={fieldErrors.qualityId ?? null}
                 />
-              ) : (
-                <View>
-                  <Text style={styles.label}>Quality grade</Text>
-                  <Text style={styles.readOnlyValue}>
-                    {!values.categoryId
-                      ? "Select a category first"
-                      : qualitiesLoading
-                        ? "Loading qualities…"
-                        : qualitiesError
-                          ? "Could not load qualities"
-                          : "No qualities configured for this category. Contact an admin to add qualities before publishing."}
-                  </Text>
-                  {fieldErrors.qualityId ? (
-                    <Text style={styles.fieldError}>
-                      {fieldErrors.qualityId}
-                    </Text>
-                  ) : null}
-                </View>
               )}
               {qualitiesError ? (
                 <Pressable
@@ -775,7 +775,7 @@ export function AddListingScreen() {
             isPickingMedia ||
             isUploading ||
             (!editListingId &&
-              Boolean(values.categoryId) &&
+              Boolean(values.commodityId) &&
               (qualitiesLoading ||
                 qualitiesError !== null ||
                 qualities.length === 0))

@@ -20,11 +20,11 @@ export interface CatalogCommodity {
   categoryName: string;
 }
 
-/** Category-scoped quality row returned by GET `/qualities?categoryId=`. */
+/** Commodity-scoped quality row returned by GET `/qualities?commodityId=`. */
 export interface CatalogQuality {
   id: string;
   name: string;
-  categoryId: string;
+  commodityId: string;
 }
 
 function toId(v: unknown): string | null {
@@ -126,13 +126,13 @@ export const catalogApi = {
     return out.sort((a, b) => a.name.localeCompare(b.name));
   },
 
-  /** GET `/qualities?categoryId=&limit=100` — qualities for one category. */
+  /** GET `/qualities?commodityId=&limit=100` — qualities for one commodity. */
   async getQualities(
     token: string,
-    categoryId: string,
+    commodityId: string,
   ): Promise<CatalogQuality[]> {
     const raw = await apiFetch<unknown>(
-      apiUrl(QUALITIES_ENDPOINTS.list(categoryId)),
+      apiUrl(QUALITIES_ENDPOINTS.list(commodityId)),
       { token },
     );
     const out: CatalogQuality[] = [];
@@ -142,16 +142,16 @@ export const catalogApi = {
       const o = entry as Record<string, unknown>;
       const id = toId(o["id"] ?? o["_id"]);
       const name = displayName(o["name"]);
-      const categoryIdFromRow =
-        toId(o["categoryId"]) ??
-        toId(o["category_id"]) ??
-        (o["category"] !== null && typeof o["category"] === "object"
-          ? toId((o["category"] as Record<string, unknown>)["id"])
+      const commodityIdFromRow =
+        toId(o["commodityId"]) ??
+        toId(o["commodity_id"]) ??
+        (o["commodity"] !== null && typeof o["commodity"] === "object"
+          ? toId((o["commodity"] as Record<string, unknown>)["id"])
           : null);
       if (
         !id ||
         !name ||
-        (categoryIdFromRow !== null && categoryIdFromRow !== categoryId) ||
+        (commodityIdFromRow !== null && commodityIdFromRow !== commodityId) ||
         seen.has(id)
       ) {
         continue;
@@ -160,7 +160,7 @@ export const catalogApi = {
       out.push({
         id,
         name,
-        categoryId: categoryIdFromRow ?? categoryId,
+        commodityId: commodityIdFromRow ?? commodityId,
       });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));

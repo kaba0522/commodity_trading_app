@@ -139,9 +139,13 @@ export function useAddListing(
     (field: AddListingField, value: string | boolean) => {
       setValues((prev) => {
         const next = { ...prev, [field]: value } as AddListingValues;
-        // Changing category invalidates its commodity and quality selections.
+        // Changing category invalidates its commodity and quality selections;
+        // changing commodity invalidates the commodity-scoped quality.
         if (field === "categoryId" && value !== prev.categoryId) {
           next.commodityId = "";
+          next.qualityId = "";
+        }
+        if (field === "commodityId" && value !== prev.commodityId) {
           next.qualityId = "";
         }
         return next;
@@ -150,12 +154,16 @@ export function useAddListing(
         if (
           !prev[field] &&
           !(field === "categoryId" && prev["commodityId"]) &&
-          !(field === "categoryId" && prev["qualityId"])
+          !(field === "categoryId" && prev["qualityId"]) &&
+          !(field === "commodityId" && prev["qualityId"])
         ) return prev;
         const next = { ...prev };
         delete next[field];
         if (field === "categoryId") {
           delete next["commodityId"];
+          delete next["qualityId"];
+        }
+        if (field === "commodityId") {
           delete next["qualityId"];
         }
         return next;
