@@ -93,7 +93,15 @@ export function MyRequirementsScreen() {
             <Button title="Try again" variant="secondary" onPress={retry} />
           </View>
         ) : items.length === 0 ? (
-          <View style={styles.emptyCard}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.emptyCard,
+              pressed && styles.emptyCardPressed,
+            ]}
+            onPress={openForm}
+            accessibilityRole="button"
+            accessibilityLabel="Post a requirement"
+          >
             <View style={styles.emptyIcon}>
               <Text style={styles.emptyIconText}>+</Text>
             </View>
@@ -102,7 +110,7 @@ export function MyRequirementsScreen() {
               Post what you’re looking for and sellers can send offers directly
               to you. Tap + to get started.
             </Text>
-          </View>
+          </Pressable>
         ) : (
           <View style={styles.listSection}>
             <View style={styles.listHeading}>
@@ -510,6 +518,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
+  },
+  emptyCardPressed: {
+    opacity: 0.8,
   },
   emptyIcon: {
     width: 48,

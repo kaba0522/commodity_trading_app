@@ -240,7 +240,7 @@ export function useAddListing(
       const input: CreateListingInput = {
         categoryId: values.categoryId.trim(),
         commodityId: values.commodityId.trim(),
-        qualityId: values.qualityId.trim(),
+        qualityId: values.qualityId.trim() || null,
         quantityBags: Number(values.quantity.trim()),
         weightKg: values.weightKg.trim()
           ? Number(values.weightKg.trim())

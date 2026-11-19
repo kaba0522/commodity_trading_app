@@ -10,6 +10,7 @@ import {
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { getFriendlyApiError } from "@/core/api/client";
+import { formatDateLabel } from "@/core/utils/format";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { tosApi } from "@/features/auth/api/tosApi";
 import type { TosVersion } from "@/features/auth/types/authTypes";
@@ -19,31 +20,6 @@ import { spacing } from "@/theme/spacing";
 import { fonts } from "@/theme/typography";
 
 export type LegalDoc = "terms" | "privacy";
-
-/**
- * Backend dates arrive as ISO strings ("2026-08-12T00:00:00.000Z") — render a
- * short readable date ("12 Aug 2026") instead of the raw timestamp.
- * Manual month names, no Intl dependency (unreliable on some Android builds).
- */
-function formatEffectiveDate(raw: string): string {
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return raw;
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
 
 /**
  * Platform legal viewer (Profile → bottom Privacy policy / Terms of Service).
@@ -125,7 +101,7 @@ export function LegalScreen({ doc }: { doc: LegalDoc }) {
             <Text style={styles.muted}>
               Version {tos.version}
               {tos.effectiveDate
-                ? ` · effective ${formatEffectiveDate(tos.effectiveDate)}`
+                ? ` · effective ${formatDateLabel(tos.effectiveDate)}`
                 : ""}
             </Text>
             {url ? (

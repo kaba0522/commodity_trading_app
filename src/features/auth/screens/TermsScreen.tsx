@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { getFriendlyApiError } from "@/core/api/client";
 import { authService } from "@/core/auth/authService";
+import { formatDateLabel } from "@/core/utils/format";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import type { TosVersion } from "@/features/auth/types/authTypes";
 import { colors } from "@/theme/colors";
@@ -135,7 +136,9 @@ export function TermsScreen() {
         <ScrollView style={styles.card} contentContainerStyle={styles.cardContent}>
           <Text style={styles.body}>
             Version {tos.version}
-            {tos.effectiveDate ? ` · effective ${tos.effectiveDate}` : ""}
+            {tos.effectiveDate
+              ? ` · effective ${formatDateLabel(tos.effectiveDate)}`
+              : ""}
           </Text>
           <Text style={styles.body}>{FALLBACK_TOS_TEXT}</Text>
         </ScrollView>

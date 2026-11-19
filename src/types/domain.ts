@@ -32,7 +32,8 @@ export interface Listing {
   commodityId?: string;
   category: Category;
   item: string;
-  quality: string;
+  quality?: string;
+  sellerQuality?: string;
   qualityId?: string | null;
   weight: string;
   weightKg?: number | null;
@@ -92,6 +93,7 @@ export interface BuyerRequirement {
   targetPrice: number;
   bags: number;
   quality?: string;
+  sellerQuality?: string;
   weightKg?: number;
   location?: string;
   notes?: string;

@@ -33,7 +33,7 @@ function toHomeRow(l: Listing): HomeRow {
     id: String(l.id),
     category: l.category,
     item: l.item,
-    quality: l.quality,
+    quality: l.quality ?? "",
     weight: l.weight,
     bags: l.bags ?? 0,
     price: active && l.price > 0 ? l.price : null,

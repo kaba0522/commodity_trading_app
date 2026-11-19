@@ -63,8 +63,9 @@ export const addListingSchema = z.object({
   qualityId: z
     .string()
     .trim()
-    .min(1, "Quality is required")
-    .uuid("Select a valid quality"),
+    .refine((v) => v === "" || z.string().uuid().safeParse(v).success, {
+      message: "Select a valid quality",
+    }),
   quantity: positiveIntString("Quantity"),
   weightKg: optionalPositiveIntString("Weight"),
   price: optionalPositiveDecimalString("Price"),
@@ -99,8 +100,10 @@ export const postRequirementSchema = z.object({
   qualityId: z
     .string()
     .trim()
-    .min(1, "Quality is required")
-    .uuid("Select a valid quality"),
+    .refine((v) => v === "" || z.string().uuid().safeParse(v).success, {
+      message: "Select a valid quality",
+    }),
+  sellerQuality: z.string().trim().max(120, "Keep sellerQuality under 120 characters"),
   quantity: positiveIntString("Quantity"),
   weightKg: optionalPositiveIntString("Weight"),
   paymentTerms: optionalNonNegativeIntString("Payment terms (days)"),

@@ -68,7 +68,8 @@ export function BrowseScreen() {
         id: String(row.id),
         category: row.category,
         item: row.item,
-        quality: row.quality,
+        quality: row.quality ?? "",
+        sellerQuality: row.sellerQuality ?? "",
         weight: row.weight,
         seller: row.seller,
         price: String(row.price),
@@ -85,10 +86,7 @@ export function BrowseScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: spacing.md },
-      ]}
+      contentContainerStyle={[styles.content, { paddingTop: spacing.md }]}
     >
       <View style={styles.header}>
         <View style={styles.titleBlock}>
@@ -148,11 +146,11 @@ export function BrowseScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${row.item}, ${row.seller}, ${row.priceText} per bag`}
                   >
-                    <View style={styles.commodityBadge}>
+                    {/* <View style={styles.commodityBadge}>
                       <Text style={styles.commodityBadgeText} numberOfLines={2}>
                         {row.item}
                       </Text>
-                    </View>
+                    </View> */}
                     <View style={styles.commodityInfo}>
                       <Text style={styles.commoditySeller} numberOfLines={1}>
                         {row.seller}
@@ -164,6 +162,7 @@ export function BrowseScreen() {
                           : row.weight
                             ? ` · ${row.weight}`
                             : ""}
+                        {row.sellerQuality ? ` · ${row.sellerQuality}` : ""}
                       </Text>
                     </View>
                     <View style={styles.commodityPrice}>
@@ -223,6 +222,7 @@ export function BrowseScreen() {
                           <Text style={styles.sellerListingMeta}>
                             {row.qualityText} ·{" "}
                             {row.bags != null ? `${row.bags} bags` : row.weight}
+                            {row.sellerQuality ? ` · ${row.sellerQuality}` : ""}
                           </Text>
                         </View>
                         <Text style={styles.sellerListingPrice}>

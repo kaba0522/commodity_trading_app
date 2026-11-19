@@ -54,7 +54,7 @@ export function useBulkEdit() {
           id: String(l.id),
           item: l.item,
           category: l.category,
-          quality: l.quality,
+          quality: l.quality ?? "",
           bags: l.bags ?? null,
           price: l.price > 0 ? l.price : null,
           active: isActiveListing(l),

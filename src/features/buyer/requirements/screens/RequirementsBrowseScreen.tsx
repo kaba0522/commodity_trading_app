@@ -85,10 +85,7 @@ export function RequirementsBrowseScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: spacing.md },
-      ]}
+      contentContainerStyle={[styles.content, { paddingTop: spacing.md }]}
     >
       <Text style={styles.title}>Buyer Requirements</Text>
       <Text style={styles.subtitle}>
@@ -146,11 +143,11 @@ export function RequirementsBrowseScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`${row.item} requirement from ${row.buyer}, ${bagsLabel(row.bags)}`}
                   >
-                    <View style={styles.itemBadge}>
+                    {/* <View style={styles.itemBadge}>
                       <Text style={styles.itemBadgeText} numberOfLines={2}>
                         {row.item}
                       </Text>
-                    </View>
+                    </View> */}
                     <View style={styles.requirementInfo}>
                       <Text style={styles.buyerName} numberOfLines={1}>
                         {row.buyer}
@@ -219,7 +216,7 @@ export function RequirementsBrowseScreen() {
                             style={styles.requirementMeta}
                             numberOfLines={1}
                           >
-                             {row.quality.replace(/_/g, " ")}
+                            {row.quality.replace(/_/g, " ")}
                           </Text>
                         ) : null}
                         <Text style={styles.requirementMeta}>

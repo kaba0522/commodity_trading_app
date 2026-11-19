@@ -10,8 +10,10 @@ import { useCommodityQualities } from "@/features/shared/catalog/hooks/useCommod
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { router } from "expo-router";
+import { useState } from "react";
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -23,7 +25,7 @@ import {
 
 /**
  * Buyer Post requirement: category → commodity (live backend UUIDs),
- * quality grade and quantity (required); publishes `side: "BUY"`.
+ * quality grade (optional) and quantity (required); publishes `side: "BUY"`.
  * Price is agreed in negotiation.
  */
 interface PostRequirementScreenProps {
@@ -53,6 +55,7 @@ export function PostRequirementScreen({
     commodityNameById,
     isEditing,
   } = usePostRequirement({ editId, initialValues });
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const {
     qualities,
     isLoading: qualitiesLoading,
@@ -79,16 +82,21 @@ export function PostRequirementScreen({
         ? "Could not load qualities"
         : qualities.length === 0
           ? "No qualities configured for this commodity. Contact an admin to add qualities before posting."
-          : "Select a quality grade";
+          : "Select a quality grade (optional)";
   const commodityPlaceholder = !values.categoryId
     ? "Select a category first"
     : commoditiesLoading
       ? "Loading commodities…"
       : commoditiesError
         ? "Could not load commodities"
-        : commodities.length === 0
-          ? "No commodities in this category"
-          : "Select a commodity";
+          : commodities.length === 0
+            ? "No commodities in this category"
+            : "Select a commodity";
+
+  async function handleSubmit() {
+    const saved = await submit();
+    if (saved && !isEditing) setShowConfirmation(true);
+  }
 
   return (
     <KeyboardAvoidingView
@@ -176,34 +184,18 @@ export function PostRequirementScreen({
           )}
           {!isEditing ? (
             <>
-              {!values.commodityId ||
-              qualitiesLoading ||
-              qualitiesError ||
-              qualities.length === 0 ? (
-                <View>
-                  <Text style={styles.label}>Quality grade</Text>
-                  <Text style={styles.helperText}>{qualityPlaceholder}</Text>
-                  {fieldErrors.qualityId ? (
-                    <Text style={styles.fieldError}>
-                      {fieldErrors.qualityId}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : (
-                <Dropdown
-                  label="Quality grade"
-                  placeholder={qualityPlaceholder}
-                  value={selectedQualityLabel}
-                  options={qualityOptions}
-                  onChange={(name) => {
-                    const found = qualities.find(
-                      (quality) => quality.name === name,
-                    );
-                    if (found) setField("qualityId", found.id);
-                  }}
-                  error={fieldErrors.qualityId ?? null}
-                />
-              )}
+              <Dropdown
+                label="Quality grade"
+                placeholder={qualityPlaceholder}
+                value={selectedQualityLabel}
+                options={qualityOptions}
+                onChange={(name) => {
+                  const found = qualities.find(
+                    (quality) => quality.name === name,
+                  );
+                  if (found) setField("qualityId", found.id);
+                }}
+              />
               {qualitiesError ? (
                 <Pressable
                   onPress={retryQualities}
@@ -240,6 +232,23 @@ export function PostRequirementScreen({
             />
             {fieldErrors.quantity ? (
               <Text style={styles.fieldError}>{fieldErrors.quantity}</Text>
+            ) : null}
+          </View>
+          <View>
+            <Text style={styles.label}>Seller Quality</Text>
+            <TextInput
+              style={[
+                styles.input,
+                fieldErrors.sellerQuality ? styles.inputError : null,
+              ]}
+              value={values.sellerQuality}
+              onChangeText={(v) => setField("sellerQuality", v)}
+              placeholder="e.g. Grade A"
+              placeholderTextColor={colors.muted}
+              autoCorrect={false}
+            />
+            {fieldErrors.sellerQuality ? (
+              <Text style={styles.fieldError}>{fieldErrors.sellerQuality}</Text>
             ) : null}
           </View>
           {!isEditing ? (
@@ -295,15 +304,9 @@ export function PostRequirementScreen({
 
         <Button
           title={isEditing ? "Save changes" : "Post requirement"}
-          onPress={submit}
+          onPress={handleSubmit}
           loading={isLoading}
-          disabled={
-            !isEditing &&
-            Boolean(values.commodityId) &&
-            (qualitiesLoading ||
-              qualitiesError !== null ||
-              qualities.length === 0)
-          }
+          disabled={isLoading}
         />
         {success ? (
           <Button
@@ -315,6 +318,49 @@ export function PostRequirementScreen({
           />
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={showConfirmation}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmation(false)}
+      >
+        <View style={styles.confirmationOverlay}>
+          <View
+            style={styles.confirmationCard}
+            accessibilityViewIsModal
+            accessibilityRole="alert"
+          >
+            <View style={styles.confirmationIcon}>
+              <Text style={styles.confirmationCheck}>✓</Text>
+            </View>
+            <Text style={styles.confirmationTitle}>Requirement posted!</Text>
+            <Text style={styles.confirmationMessage}>{success}</Text>
+            <Text style={styles.confirmationHint}>
+              Sellers can now send offers to your requirement.
+            </Text>
+            <Pressable
+              style={styles.continueButton}
+              onPress={() => setShowConfirmation(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.continueButtonText}>
+                Continue with post requirement
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.okButton}
+              onPress={() => {
+                setShowConfirmation(false);
+                router.back();
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.okButtonText}>View my requirements</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -392,5 +438,82 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.danger,
     marginTop: 4,
+  },
+  confirmationOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+    backgroundColor: "rgba(0, 0, 0, 0.48)",
+  },
+  confirmationCard: {
+    width: "100%",
+    maxWidth: 420,
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.xl,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmationIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.successBg,
+    marginBottom: spacing.xs,
+  },
+  confirmationCheck: {
+    color: colors.success,
+    fontSize: 32,
+    fontWeight: "800",
+  },
+  confirmationTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    color: colors.text,
+    textAlign: "center",
+  },
+  confirmationMessage: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.text,
+    textAlign: "center",
+  },
+  confirmationHint: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.muted,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  continueButton: {
+    width: "100%",
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  continueButtonText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  okButton: {
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  okButtonText: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

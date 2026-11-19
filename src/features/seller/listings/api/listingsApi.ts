@@ -17,7 +17,7 @@ import type { Category, Listing, ListingStatus } from "@/types/domain";
 export interface CreateListingInput {
   categoryId: string;
   commodityId: string;
-  qualityId: string;
+  qualityId?: string | null;
   quantityBags: number;
   weightKg?: number | null;
   /** Price per bag in rupees; null = shell listing without price. */
@@ -114,7 +114,7 @@ function toPayload(input: CreateListingInput): Record<string, unknown> {
     commodityId: input.commodityId,
     quantityBags: input.quantityBags,
   };
-  body["qualityId"] = input.qualityId;
+  if (input.qualityId) body["qualityId"] = input.qualityId;
   if (input.weightKg != null) body["weightKg"] = input.weightKg;
   if (input.price != null) body["price"] = input.price;
   if (input.moisture) body["moisture"] = input.moisture;

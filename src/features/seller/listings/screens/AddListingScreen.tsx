@@ -380,27 +380,22 @@ export function AddListingScreen() {
               qualitiesLoading ||
               qualitiesError ||
               qualities.length === 0 ? (
-                <View>
-                  <Text style={styles.label}>Quality grade</Text>
-                  <Text style={styles.readOnlyValue}>
-                    {!values.commodityId
-                      ? "Select a commodity first"
-                      : qualitiesLoading
-                        ? "Loading qualities…"
-                        : qualitiesError
-                          ? "Could not load qualities"
-                          : "No qualities configured for this commodity. Contact an admin to add qualities before publishing."}
-                  </Text>
-                  {fieldErrors.qualityId ? (
-                    <Text style={styles.fieldError}>
-                      {fieldErrors.qualityId}
-                    </Text>
-                  ) : null}
-                </View>
+              <View>
+                <Text style={styles.label}>Quality grade</Text>
+                <Text style={styles.readOnlyValue}>
+                  {!values.commodityId
+                    ? "Select a commodity first"
+                    : qualitiesLoading
+                      ? "Loading qualities…"
+                      : qualitiesError
+                        ? "Could not load qualities"
+                        : "No qualities configured for this commodity. Contact an admin to add qualities before publishing."}
+                </Text>
+              </View>
               ) : (
                 <Dropdown
                   label="Quality grade"
-                  placeholder="Select a quality grade"
+                  placeholder="Select a quality grade (optional)"
                   value={selectedQualityName}
                   options={qualities.map((quality) => quality.name)}
                   onChange={(name) => {
@@ -409,7 +404,6 @@ export function AddListingScreen() {
                     );
                     if (found) setField("qualityId", found.id);
                   }}
-                  error={fieldErrors.qualityId ?? null}
                 />
               )}
               {qualitiesError ? (
@@ -771,15 +765,7 @@ export function AddListingScreen() {
           }
           onPress={handleSubmit}
           loading={isLoading}
-          disabled={
-            isPickingMedia ||
-            isUploading ||
-            (!editListingId &&
-              Boolean(values.commodityId) &&
-              (qualitiesLoading ||
-                qualitiesError !== null ||
-                qualities.length === 0))
-          }
+          disabled={isPickingMedia || isUploading}
         />
       </ScrollView>
       <Modal
@@ -807,16 +793,17 @@ export function AddListingScreen() {
               onPress={() => setShowPublishConfirmation(false)}
               accessibilityRole="button"
             >
-              <Text style={styles.continueButtonText}>
-                Continue with add listing
-              </Text>
+              <Text style={styles.continueButtonText}>Add more</Text>
             </Pressable>
             <Pressable
               style={styles.okButton}
-              onPress={() => setShowPublishConfirmation(false)}
+              onPress={() => {
+                setShowPublishConfirmation(false);
+                router.back();
+              }}
               accessibilityRole="button"
             >
-              <Text style={styles.okButtonText}>OK</Text>
+              <Text style={styles.okButtonText}>Go to my listings</Text>
             </Pressable>
           </View>
         </View>

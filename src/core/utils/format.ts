@@ -18,3 +18,30 @@ export function priceLabel(price: number): string {
 export function bagsLabel(bags: number): string {
   return `${bags} bag${bags === 1 ? "" : "s"}`;
 }
+
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * Backend dates arrive as ISO strings ("2026-10-01T00:00:00.000Z") — render a
+ * short readable date ("1 Oct 2026") instead of the raw timestamp. Manual month
+ * names, no Intl dependency (unreliable on some Android builds). Returns the
+ * input unchanged when it is not a valid date.
+ */
+export function formatDateLabel(raw: string): string {
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
