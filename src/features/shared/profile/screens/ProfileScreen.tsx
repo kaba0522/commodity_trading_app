@@ -57,7 +57,12 @@ export function ProfileScreen({
   const initial = name.slice(0, 1).toUpperCase();
 
   /** Tab screens live in the tab navigators — replace avoids stacking a tab over profile. */
-  const TAB_HREFS: ReadonlySet<string> = new Set(["/orders", "/trades", "/add-listing"]);
+  const TAB_HREFS: ReadonlySet<string> = new Set([
+    "/orders",
+    "/trades",
+    "/add-listing",
+    "/broker",
+  ]);
 
   function handleRow(row: Row) {
     if (row.href) {

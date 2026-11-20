@@ -8,6 +8,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type BrowseMode = "commodity" | "seller";
 
+/** Route prefix for the Browse workspace (buyer or broker). */
+export type BrowseBase = "/browse" | "/broker/browse";
+
 export interface BrowseRow extends Listing {
   priceText: string;
   qualityText: string;

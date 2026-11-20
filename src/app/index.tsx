@@ -20,7 +20,10 @@ export default function Index() {
 
   if (status === "signed-out") return <Redirect href="/login" />;
   if (status === "needs-terms") return <Redirect href="/terms" />;
-  return <Redirect href={homePath(resolveBackendRole(session?.user))} />;
+
+  const role = resolveBackendRole(session?.user);
+  if (role === "broker") return <Redirect href="/broker" />;
+  return <Redirect href={homePath(role)} />;
 }
 
 const styles = StyleSheet.create({

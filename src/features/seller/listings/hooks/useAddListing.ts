@@ -21,6 +21,7 @@ export type AddListingField =
   | "moisture"
   | "color"
   | "size"
+  | "sellerQuality"
   | "paymentTerms"
   | "notes"
   | "photoUrls"
@@ -36,6 +37,7 @@ export interface AddListingValues {
   moisture: string;
   color: string;
   size: string;
+  sellerQuality: string;
   paymentTerms: string;
   notes: string;
   photoUrls: string[];
@@ -54,6 +56,7 @@ const INITIAL_VALUES: AddListingValues = {
   moisture: "",
   color: "",
   size: "",
+  sellerQuality: "",
   paymentTerms: "",
   notes: "",
   photoUrls: [],
@@ -123,6 +126,7 @@ export function useAddListing(
       moisture: sourceListing.moisture ?? "",
       color: sourceListing.color ?? "",
       size: sourceListing.size ?? "",
+      sellerQuality: sourceListing.sellerQuality ?? "",
       paymentTerms:
         sourceListing.paymentTerms != null
           ? String(sourceListing.paymentTerms)
@@ -205,6 +209,7 @@ export function useAddListing(
           quantity: values.quantity,
           price: values.price,
           notes: values.notes,
+          sellerQuality: values.sellerQuality,
         })
       : addListingSchema.safeParse({
           categoryId: values.categoryId,
@@ -216,6 +221,7 @@ export function useAddListing(
           moisture: values.moisture,
           color: values.color,
           size: values.size,
+          sellerQuality: values.sellerQuality,
           paymentTerms: values.paymentTerms,
           notes: values.notes,
           photoUrls: values.photoUrls,
@@ -249,6 +255,7 @@ export function useAddListing(
         moisture: values.moisture.trim() || null,
         color: values.color.trim() || null,
         size: values.size.trim() || null,
+        sellerQuality: values.sellerQuality.trim() || null,
         paymentTerms: !editListingId
           ? Number(values.paymentTerms.trim())
           : null,
@@ -273,6 +280,11 @@ export function useAddListing(
         }
         if (input.notes !== (sourceListing.notes || null)) {
           patch.notes = input.notes;
+        }
+        if (
+          input.sellerQuality !== (sourceListing.sellerQuality || null)
+        ) {
+          patch.sellerQuality = input.sellerQuality;
         }
         if (Object.keys(patch).length > 0) {
           await runWithAuth((token) =>

@@ -5,6 +5,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface ExpandableGroupCardProps {
   title: string;
+  /** Optional short label shown next to the title (e.g. a listing count). */
+  meta?: string;
   expanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
@@ -12,6 +14,7 @@ interface ExpandableGroupCardProps {
 
 export function ExpandableGroupCard({
   title,
+  meta,
   expanded,
   onToggle,
   children,
@@ -22,12 +25,17 @@ export function ExpandableGroupCard({
         style={[styles.header, expanded && styles.headerExpanded]}
         onPress={onToggle}
         accessibilityRole="button"
-        accessibilityLabel={title}
+        accessibilityLabel={meta ? `${title}, ${meta}` : title}
         accessibilityState={{ expanded }}
       >
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
+        {meta ? (
+          <Text style={styles.meta} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
         <ChevronIcon
           direction={expanded ? "down" : "right"}
           color={colors.primaryDark}
@@ -66,5 +74,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.primaryDark,
+  },
+  meta: {
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.muted,
   },
 });

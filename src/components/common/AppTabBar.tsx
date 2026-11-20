@@ -37,6 +37,13 @@ export const SELLER_BAR: BarItem[] = [
   { target: "seller-profile", label: "Profile", Icon: ProfileIcon },
 ];
 
+/** Broker bar: scoped Browse + My Trades, plus the shared Profile screen. */
+export const BROKER_BAR: BarItem[] = [
+  { target: "browse", label: "Browse", Icon: BrowseIcon },
+  { target: "trades", label: "My Trades", Icon: TradesIcon },
+  { target: "profile", label: "Profile", Icon: ProfileIcon },
+];
+
 interface AppTabBarProps {
   items: BarItem[];
   active: string | null;

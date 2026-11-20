@@ -16,6 +16,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(buyer)" />
             <Stack.Screen name="(seller)" />
+            <Stack.Screen name="broker" />
             <Stack.Screen name="(shared)" />
           </Stack>
         </SafeAreaView>

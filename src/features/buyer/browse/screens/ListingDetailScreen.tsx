@@ -2,6 +2,7 @@ import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { ListingMedia } from "@/features/shared/listings/components/ListingMedia";
+import type { BrowseBase } from "@/features/buyer/browse/hooks/useBrowse";
 import { useListingDetail } from "@/features/buyer/browse/hooks/useListingDetail";
 import { priceLabel } from "@/core/utils/format";
 import { colors } from "@/theme/colors";
@@ -33,12 +34,22 @@ function priceExpiryLabel(value: string | null | undefined): string {
   })}`;
 }
 
+interface ListingDetailScreenProps {
+  /** Workspace prefix the detail was opened from. */
+  browseBase?: BrowseBase;
+  /** Brokers can inspect listings but cannot trade (backend read-only role). */
+  readOnly?: boolean;
+}
+
 /**
- * Buyer listing detail (Buyer App.html detail screen): tapped from Browse —
+ * Buyer/Broker listing detail (Buyer App.html detail screen): tapped from Browse —
  * price card, payment terms, Make an offer / Buy, firm terms, and
  * view-all-from-seller. Offer/buy submit needs a backend trade contract.
  */
-export function ListingDetailScreen() {
+export function ListingDetailScreen({
+  browseBase = "/browse",
+  readOnly = false,
+}: ListingDetailScreenProps) {
   const params = useLocalSearchParams<{
     id?: string;
     category?: string;
@@ -69,7 +80,7 @@ export function ListingDetailScreen() {
   function viewAllFromSeller() {
     if (!listing) return;
     router.push({
-      pathname: "/browse",
+      pathname: browseBase,
       params: { seller: listing.seller },
     });
   }
@@ -87,7 +98,7 @@ export function ListingDetailScreen() {
         { paddingTop: spacing.md },
       ]}
     >
-      <BackButton accessibilityLabel="Back to browse" fallback="/browse" />
+      <BackButton accessibilityLabel="Back to browse" fallback={browseBase} />
 
       {isLoading && !listing ? (
         <View style={styles.center}>
@@ -177,30 +188,37 @@ export function ListingDetailScreen() {
             </Text>
           </View>
 
-          <View style={styles.actions}>
-            <View style={styles.actionFlex}>
-              <Button
-                title="Make an offer"
-                onPress={() =>
-                  router.push({
-                    pathname: "/browse/negotiate",
-                    params: {
-                      id: String(listing.id),
-                      category: listing.category,
-                      item: listing.item,
-                      seller: listing.seller,
-                      price: String(listing.price),
-                      weight: listing.weight,
-                      bags: String(listing.bags ?? ""),
-                    },
-                  })
-                }
-              />
+          {readOnly ? (
+            <FormStatus
+              kind="info"
+              message="Broker accounts have read-only access to listings."
+            />
+          ) : (
+            <View style={styles.actions}>
+              <View style={styles.actionFlex}>
+                <Button
+                  title="Make an offer"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/browse/negotiate",
+                      params: {
+                        id: String(listing.id),
+                        category: listing.category,
+                        item: listing.item,
+                        seller: listing.seller,
+                        price: String(listing.price),
+                        weight: listing.weight,
+                        bags: String(listing.bags ?? ""),
+                      },
+                    })
+                  }
+                />
+              </View>
+              <View style={styles.actionFlex}>
+                <Button title="Buy" onPress={pendingTrade} />
+              </View>
             </View>
-            <View style={styles.actionFlex}>
-              <Button title="Buy" onPress={pendingTrade} />
-            </View>
-          </View>
+          )}
           {notice ? <FormStatus kind="info" message={notice} /> : null}
 
           <View style={styles.card}>

@@ -26,6 +26,22 @@ export interface ProfileRow {
  * parameterized by role; only the role-specific rows differ).
  */
 export function useProfile(role: Role | null) {
+  if (role === "broker") {
+    const main: ProfileRow[] = [
+      { key: "account", label: "Account", href: "/account" },
+      { key: "trades", label: "My trades", href: "/trades" },
+      { key: "preferences", label: "Preferences", href: "/preferences" },
+    ];
+    const share: ProfileRow[] = [
+      { key: "share", label: "Share with your friends" },
+    ];
+    const legal: ProfileRow[] = [
+      { key: "privacy", label: "Privacy policy", href: "/privacy-policy" },
+      { key: "terms", label: "Terms of Service", href: "/platform-terms" },
+    ];
+    return { main, share, legal };
+  }
+
   const main: ProfileRow[] = [
     { key: "account", label: "Account", href: "/account" },
     { key: "payment", label: "Payment terms", href: "/payment-terms" },

@@ -91,8 +91,7 @@ export function AddListingScreen() {
     relistId?: string;
   }>();
   const editListingId = typeof id === "string" ? id : undefined;
-  const relistListingId =
-    typeof relistId === "string" ? relistId : undefined;
+  const relistListingId = typeof relistId === "string" ? relistId : undefined;
   const sourceListingId = editListingId ?? relistListingId;
   const [optionalDetailsOpen, setOptionalDetailsOpen] = useState(false);
   const [isPickingMedia, setIsPickingMedia] = useState(false);
@@ -279,13 +278,7 @@ export function AddListingScreen() {
 
   if (sourceListingId && editListingError) {
     return (
-      <View
-        style={[
-          styles.flex,
-          styles.centered,
-          { paddingTop: spacing.md },
-        ]}
-      >
+      <View style={[styles.flex, styles.centered, { paddingTop: spacing.md }]}>
         <BackButton
           accessibilityLabel={
             editListingId ? "Back to listing details" : "Back to my listings"
@@ -303,10 +296,7 @@ export function AddListingScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: spacing.md },
-        ]}
+        contentContainerStyle={[styles.content, { paddingTop: spacing.md }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topRow}>
@@ -327,7 +317,7 @@ export function AddListingScreen() {
             ? "Update the details for your listing."
             : relistListingId
               ? "Review the previous listing details and publish it again."
-            : "Publish today&apos;s price for one commodity."}
+              : "Publish today&apos;s price for one commodity."}
         </Text>
 
         <View style={styles.card}>
@@ -380,18 +370,18 @@ export function AddListingScreen() {
               qualitiesLoading ||
               qualitiesError ||
               qualities.length === 0 ? (
-              <View>
-                <Text style={styles.label}>Quality grade</Text>
-                <Text style={styles.readOnlyValue}>
-                  {!values.commodityId
-                    ? "Select a commodity first"
-                    : qualitiesLoading
-                      ? "Loading qualities…"
-                      : qualitiesError
-                        ? "Could not load qualities"
-                        : "No qualities configured for this commodity. Contact an admin to add qualities before publishing."}
-                </Text>
-              </View>
+                <View>
+                  <Text style={styles.label}>Quality grade</Text>
+                  <Text style={styles.readOnlyValue}>
+                    {!values.commodityId
+                      ? "Select a commodity first"
+                      : qualitiesLoading
+                        ? "Loading qualities…"
+                        : qualitiesError
+                          ? "Could not load qualities"
+                          : "No qualities configured for this commodity. Contact an admin to add qualities before publishing."}
+                  </Text>
+                </View>
               ) : (
                 <Dropdown
                   label="Quality grade"
@@ -560,7 +550,7 @@ export function AddListingScreen() {
                       : "Add photos"}
                 </Text>
                 <Text style={styles.mediaNote}>
-                  {photos.length}/${MAX_LISTING_PHOTOS} selected
+                  {photos.length}-{MAX_LISTING_PHOTOS} selected
                 </Text>
               </Pressable>
               <Pressable
@@ -667,7 +657,7 @@ export function AddListingScreen() {
                 Add more details (optional)
               </Text>
               <Text style={styles.optionalSubtitle}>
-                Moisture, color, size and notes
+                Brand, moisture, color, size and notes
               </Text>
             </View>
             <Text style={styles.optionalChevron}>
@@ -676,6 +666,25 @@ export function AddListingScreen() {
           </Pressable>
           {optionalDetailsOpen ? (
             <View style={styles.optionalFields}>
+              <View>
+                <Text style={styles.label}>Brand</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    fieldErrors.sellerQuality ? styles.inputError : null,
+                  ]}
+                  value={values.sellerQuality}
+                  onChangeText={(v) => setField("sellerQuality", v)}
+                  placeholder="Your own Brand / Quality Name"
+                  placeholderTextColor={colors.muted}
+                  autoCorrect={false}
+                />
+                {fieldErrors.sellerQuality ? (
+                  <Text style={styles.fieldError}>
+                    {fieldErrors.sellerQuality}
+                  </Text>
+                ) : null}
+              </View>
               <View style={styles.row}>
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Moisture</Text>
@@ -976,6 +985,11 @@ const styles = StyleSheet.create({
   fieldError: {
     fontSize: 12.5,
     color: colors.danger,
+    marginTop: 4,
+  },
+  helperText: {
+    fontSize: 11.5,
+    color: colors.muted,
     marginTop: 4,
   },
   checkRow: {

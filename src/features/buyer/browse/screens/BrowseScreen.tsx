@@ -3,7 +3,10 @@ import { ChevronIcon } from "@/components/common/ChevronIcon";
 import { ExpandableGroupCard } from "@/components/common/ExpandableGroupCard";
 import { ModeToggle } from "@/components/common/ModeToggle";
 import { Button } from "@/components/ui/Button";
-import type { BrowseRow } from "@/features/buyer/browse/hooks/useBrowse";
+import type {
+  BrowseBase,
+  BrowseRow,
+} from "@/features/buyer/browse/hooks/useBrowse";
 import { useBrowse } from "@/features/buyer/browse/hooks/useBrowse";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -19,8 +22,17 @@ import {
   View,
 } from "react-native";
 
-/** Buyer Browse (`isBrowse` in Buyer App.html): By Commodity / By Seller, rows open detail next slice. */
-export function BrowseScreen() {
+interface BrowseScreenProps {
+  /** Workspace prefix — brokers use their own nested Browse stack. */
+  browseBase?: BrowseBase;
+}
+
+function listingCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "listing" : "listings"}`;
+}
+
+/** Buyer/Broker Browse (`isBrowse` in Buyer App.html): By Commodity / By Seller, rows open detail. */
+export function BrowseScreen({ browseBase = "/browse" }: BrowseScreenProps) {
   const { seller: sellerParam } = useLocalSearchParams<{ seller?: string }>();
   const {
     categories,
@@ -63,7 +75,7 @@ export function BrowseScreen() {
 
   function openListing(row: BrowseRow) {
     router.push({
-      pathname: "/browse/[id]",
+      pathname: `${browseBase}/[id]`,
       params: {
         id: String(row.id),
         category: row.category,
@@ -132,7 +144,12 @@ export function BrowseScreen() {
           {categoryGroups.map((group) => (
             <View key={group.category} style={styles.group}>
               <View style={styles.categoryHeader}>
-                <Text style={styles.categoryTitle}>{group.category}</Text>
+                <Text style={styles.categoryTitle} numberOfLines={1}>
+                  {group.category}
+                </Text>
+                <Text style={styles.categoryCount}>
+                  {listingCountLabel(group.rows.length)}
+                </Text>
               </View>
               <View style={styles.categoryBody}>
                 {group.rows.map((row, index) => (
@@ -144,24 +161,16 @@ export function BrowseScreen() {
                     ]}
                     onPress={() => openListing(row)}
                     accessibilityRole="button"
-                    accessibilityLabel={`${row.item}, ${row.seller}, ${row.priceText} per bag`}
+                    accessibilityLabel={`${row.seller}, ${row.item}, ${row.qualityText}${
+                      row.sellerQuality ? `, brand ${row.sellerQuality}` : ""
+                    }, ${row.priceText} per bag`}
                   >
-                    {/* <View style={styles.commodityBadge}>
-                      <Text style={styles.commodityBadgeText} numberOfLines={2}>
-                        {row.item}
-                      </Text>
-                    </View> */}
                     <View style={styles.commodityInfo}>
                       <Text style={styles.commoditySeller} numberOfLines={1}>
                         {row.seller}
                       </Text>
                       <Text style={styles.commodityMeta} numberOfLines={1}>
-                        {row.qualityText}
-                        {row.bags != null
-                          ? ` · ${row.bags} bags`
-                          : row.weight
-                            ? ` · ${row.weight}`
-                            : ""}
+                        {row.item} · {row.qualityText}
                         {row.sellerQuality ? ` · ${row.sellerQuality}` : ""}
                       </Text>
                     </View>
@@ -193,6 +202,9 @@ export function BrowseScreen() {
               <ExpandableGroupCard
                 key={sg.seller}
                 title={sg.seller}
+                meta={listingCountLabel(
+                  sg.itemGroups.reduce((count, group) => count + group.rows.length, 0),
+                )}
                 expanded={!isCollapsed}
                 onToggle={() => toggleSeller(sg.seller)}
               >
@@ -210,7 +222,9 @@ export function BrowseScreen() {
                         ]}
                         onPress={() => openListing(row)}
                         accessibilityRole="button"
-                        accessibilityLabel={`${row.category} ${row.item}, ${row.priceText} per bag`}
+                        accessibilityLabel={`${row.category} ${row.item}, ${row.qualityText}${
+                          row.sellerQuality ? `, brand ${row.sellerQuality}` : ""
+                        }, ${row.priceText} per bag`}
                       >
                         <View style={styles.sellerListingInfo}>
                           <Text
@@ -220,8 +234,7 @@ export function BrowseScreen() {
                             {row.category} · {row.item}
                           </Text>
                           <Text style={styles.sellerListingMeta}>
-                            {row.qualityText} ·{" "}
-                            {row.bags != null ? `${row.bags} bags` : row.weight}
+                            {row.qualityText}
                             {row.sellerQuality ? ` · ${row.sellerQuality}` : ""}
                           </Text>
                         </View>
@@ -290,6 +303,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -300,9 +317,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   categoryTitle: {
+    flexShrink: 1,
     fontSize: 13.5,
     fontWeight: "700",
     color: colors.text,
+  },
+  categoryCount: {
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.muted,
   },
   categoryBody: {
     borderWidth: 1,

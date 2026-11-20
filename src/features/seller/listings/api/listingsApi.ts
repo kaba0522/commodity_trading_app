@@ -25,6 +25,8 @@ export interface CreateListingInput {
   moisture?: string | null;
   color?: string | null;
   size?: string | null;
+  /** Seller's own brand / quality name for this commodity. */
+  sellerQuality?: string | null;
   /** Per-listing override in days; null = the firm default applies. */
   paymentTerms?: number | null;
   notes?: string | null;
@@ -120,6 +122,7 @@ function toPayload(input: CreateListingInput): Record<string, unknown> {
   if (input.moisture) body["moisture"] = input.moisture;
   if (input.color) body["color"] = input.color;
   if (input.size) body["size"] = input.size;
+  if (input.sellerQuality) body["sellerQuality"] = input.sellerQuality;
   if (input.paymentTerms) body["paymentTerms"] = input.paymentTerms;
   if (input.notes) body["notes"] = input.notes;
   if (input.photoUrls) body["photoUrls"] = input.photoUrls;
@@ -478,6 +481,7 @@ function normalizeListing(
     moisture: pickString(obj, "moisture"),
     color: pickString(obj, "color"),
     size: pickString(obj, "size"),
+    sellerQuality: pickString(obj, "sellerQuality"),
     notes: pickString(obj, "notes"),
     paymentTerms: pickNumber(obj, "paymentTerms", "payment_terms"),
     priceValidUntil: pickString(obj, "priceValidUntil", "price_valid_until") || null,

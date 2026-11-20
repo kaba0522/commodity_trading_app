@@ -2,8 +2,8 @@ import type { User } from "@/features/auth/types/authTypes";
 import type { Role } from "@/types/domain";
 
 /**
- * Backend-driven role: exactly one of buyer/seller in `user.roles`
- * decides the workspace. Ambiguous accounts (both or neither) fall back
+ * Backend-driven role: exactly one of buyer/seller/broker in `user.roles`
+ * decides the workspace. Ambiguous accounts (multiple or none) fall back
  * to buyer Browse.
  */
 export function resolveBackendRole(user: Pick<User, "roles"> | null | undefined): Role | null {
@@ -12,6 +12,8 @@ export function resolveBackendRole(user: Pick<User, "roles"> | null | undefined)
   );
   const isBuyer = roles.includes("buyer");
   const isSeller = roles.includes("seller");
+  const isBroker = roles.includes("broker");
+  if (isBroker && !isBuyer && !isSeller) return "broker";
   if (isSeller && !isBuyer) return "seller";
   if (isBuyer && !isSeller) return "buyer";
   return null;
@@ -19,9 +21,9 @@ export function resolveBackendRole(user: Pick<User, "roles"> | null | undefined)
 
 /**
  * Workspace landing screen for a role (ambiguous roles default to buyer Browse).
- * Both buyer and seller land on their Browse tab by default:
- * buyer → /browse, seller → /requirements (labelled "Browse" in the seller bar).
+ * Both buyer and broker land on Browse by default; seller lands on requirements.
  */
 export function homePath(role: Role | null): "/browse" | "/requirements" {
+  if (role === "broker") return "/browse";
   return role === "seller" ? "/requirements" : "/browse";
 }

@@ -234,23 +234,6 @@ export function PostRequirementScreen({
               <Text style={styles.fieldError}>{fieldErrors.quantity}</Text>
             ) : null}
           </View>
-          <View>
-            <Text style={styles.label}>Seller Quality</Text>
-            <TextInput
-              style={[
-                styles.input,
-                fieldErrors.sellerQuality ? styles.inputError : null,
-              ]}
-              value={values.sellerQuality}
-              onChangeText={(v) => setField("sellerQuality", v)}
-              placeholder="e.g. Grade A"
-              placeholderTextColor={colors.muted}
-              autoCorrect={false}
-            />
-            {fieldErrors.sellerQuality ? (
-              <Text style={styles.fieldError}>{fieldErrors.sellerQuality}</Text>
-            ) : null}
-          </View>
           {!isEditing ? (
             <View>
               <Text style={styles.label}>Weight per bag (kg)</Text>

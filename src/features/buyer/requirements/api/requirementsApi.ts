@@ -296,7 +296,6 @@ export interface CreateRequirementInput {
   categoryId: string;
   commodityId: string;
   qualityId?: string | null;
-  sellerQuality?: string | null;
   quantityBags: number;
   weightKg?: number | null;
   paymentTerms?: number | null;
@@ -325,7 +324,6 @@ export const requirementsApi = {
       quantityBags: input.quantityBags,
     };
     if (input.qualityId) body["qualityId"] = input.qualityId;
-    if (input.sellerQuality) body["sellerQuality"] = input.sellerQuality;
     if (input.weightKg != null) body["weightKg"] = input.weightKg;
     if (input.paymentTerms != null) body["paymentTerms"] = input.paymentTerms;
     if (input.location) body["location"] = input.location;

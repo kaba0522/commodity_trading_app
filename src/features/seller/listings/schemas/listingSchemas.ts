@@ -72,6 +72,10 @@ export const addListingSchema = z.object({
   moisture: z.string().max(40, "Keep moisture under 40 characters"),
   color: z.string().max(40, "Keep color under 40 characters"),
   size: z.string().max(40, "Keep size under 40 characters"),
+  sellerQuality: z
+    .string()
+    .trim()
+    .max(120, "Keep seller quality under 120 characters"),
   paymentTerms: optionalNonNegativeIntString("Payment terms (days)"),
   notes: z.string().max(500, "Keep notes under 500 characters"),
   photoUrls: z.array(z.string().url()).max(5, "A listing can have at most 5 photos"),
@@ -85,6 +89,11 @@ export const editListingSchema = z.object({
   quantity: positiveIntString("Quantity"),
   price: optionalPositiveDecimalString("Price"),
   notes: z.string().max(500, "Keep notes under 500 characters"),
+  sellerQuality: z
+    .string()
+    .trim()
+    .max(120, "Keep seller quality under 120 characters")
+    .optional(),
 });
 
 export type EditListingSchema = z.infer<typeof editListingSchema>;
@@ -103,7 +112,6 @@ export const postRequirementSchema = z.object({
     .refine((v) => v === "" || z.string().uuid().safeParse(v).success, {
       message: "Select a valid quality",
     }),
-  sellerQuality: z.string().trim().max(120, "Keep sellerQuality under 120 characters"),
   quantity: positiveIntString("Quantity"),
   weightKg: optionalPositiveIntString("Weight"),
   paymentTerms: optionalNonNegativeIntString("Payment terms (days)"),

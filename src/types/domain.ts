@@ -1,6 +1,6 @@
 /** Domain types ported from the Buyer/Seller HTML prototypes. */
 
-export type Role = "buyer" | "seller";
+export type Role = "buyer" | "seller" | "broker";
 
 export type Category =
   | "Besan"

@@ -9,7 +9,6 @@ export type PostRequirementField =
   | "categoryId"
   | "commodityId"
   | "qualityId"
-  | "sellerQuality"
   | "quantity"
   | "weightKg"
   | "paymentTerms"
@@ -20,7 +19,6 @@ export interface PostRequirementValues {
   categoryId: string;
   commodityId: string;
   qualityId: string;
-  sellerQuality: string;
   quantity: string;
   weightKg: string;
   paymentTerms: string;
@@ -39,7 +37,6 @@ const INITIAL_VALUES: PostRequirementValues = {
   categoryId: "",
   commodityId: "",
   qualityId: "",
-  sellerQuality: "",
   quantity: "",
   weightKg: "",
   paymentTerms: "",
@@ -269,7 +266,6 @@ export function usePostRequirement(options: UsePostRequirementOptions = {}) {
             commodityId: values.commodityId.trim(),
             quantityBags: Number(values.quantity.trim()),
             qualityId: values.qualityId.trim() || null,
-            sellerQuality: values.sellerQuality.trim() || null,
             weightKg: values.weightKg.trim()
               ? Number(values.weightKg.trim())
               : null,
