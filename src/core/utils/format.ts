@@ -19,6 +19,13 @@ export function bagsLabel(bags: number): string {
   return `${bags} bag${bags === 1 ? "" : "s"}`;
 }
 
+/** 12500 -> "0:13" — voice-note duration in m:ss. */
+export function durationLabel(durationMs: number): string {
+  const seconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 const MONTHS_SHORT = [
   "Jan",
   "Feb",

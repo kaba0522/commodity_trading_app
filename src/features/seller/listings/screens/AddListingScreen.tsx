@@ -317,7 +317,7 @@ export function AddListingScreen() {
             ? "Update the details for your listing."
             : relistListingId
               ? "Review the previous listing details and publish it again."
-              : "Publish today&apos;s price for one commodity."}
+              : "Publish today's price for one commodity."}
         </Text>
 
         <View style={styles.card}>

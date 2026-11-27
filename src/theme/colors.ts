@@ -15,6 +15,10 @@ export const colors = {
   success: "#2E7D32",
   successBg: "#E9F5E9",
   warning: "#F5AF02",
+  warningTint: "#FFF8E1",
+  /** Counterparty offer cards in the negotiation thread. */
+  counterparty: "#B45309",
+  counterpartyTint: "#FFF4E6",
   /** Second accent (live/expiry tag background + text). */
   accent2Tint: "#E9F5E9",
   accent2Dark: "#2E7D32",

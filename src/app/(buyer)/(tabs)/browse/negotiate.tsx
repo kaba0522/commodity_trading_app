@@ -1,6 +1,6 @@
-import { ListingNegotiationScreen } from "@/features/buyer/browse/screens/ListingNegotiationScreen";
+import { ListingOfferScreen } from "@/features/negotiation/screens/ListingOfferScreen";
 
-/** Thin route — buyer offer UI and validation live in the browse feature. */
+/** Thin route — buyer offer/buy-now entry from a listing. */
 export default function ListingNegotiationRoute() {
-  return <ListingNegotiationScreen />;
+  return <ListingOfferScreen role="buyer" />;
 }

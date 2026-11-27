@@ -1,12 +1,30 @@
 import { BackButton } from "@/components/common/BackButton";
+import { ChevronIcon } from "@/components/common/ChevronIcon";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
-import { ListingMedia } from "@/features/shared/listings/components/ListingMedia";
+import { bagsLabel, priceLabel } from "@/core/utils/format";
 import type { BrowseBase } from "@/features/buyer/browse/hooks/useBrowse";
 import { useListingDetail } from "@/features/buyer/browse/hooks/useListingDetail";
-import { priceLabel } from "@/core/utils/format";
+import { ListingMedia } from "@/features/shared/listings/components/ListingMedia";
+import { CutoffSheet } from "@/features/negotiation/components/CutoffSheet";
+import {
+  OfferSheet,
+  type OfferDraft,
+} from "@/features/negotiation/components/OfferSheet";
+import { QtyMismatchDialog } from "@/features/negotiation/components/QtyMismatchDialog";
+import { FIRM_TERMS } from "@/features/negotiation/constants";
+import {
+  startDirectTradeThread,
+  startOfferThread,
+} from "@/features/negotiation/store";
+import {
+  isOfferWindowOpen,
+  numberParam,
+  stringParam,
+} from "@/features/negotiation/utils";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import type { Listing } from "@/types/domain";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
@@ -18,8 +36,21 @@ import {
   View,
 } from "react-native";
 
-const FIRM_TERMS =
-  "Goods must be outward within two days of order confirmation. Program received only before 5:00 PM. No tempo loading after 10 PM. Prices are subject to market conditions.";
+type DetailParams = {
+  id?: string | string[];
+  category?: string | string[];
+  item?: string | string[];
+  quality?: string | string[];
+  weight?: string | string[];
+  seller?: string | string[];
+  price?: string | string[];
+  bags?: string | string[];
+  paymentTerms?: string | string[];
+  priceValidUntil?: string | string[];
+  sellerListingCount?: string | string[];
+  requestedBags?: string | string[];
+  simulateCutoff?: string | string[];
+};
 
 function priceExpiryLabel(value: string | null | undefined): string {
   if (!value) return "Expiry unavailable";
@@ -34,6 +65,10 @@ function priceExpiryLabel(value: string | null | undefined): string {
   })}`;
 }
 
+function itemLabel(listing: Listing): string {
+  return [listing.item, listing.quality].filter(Boolean).join(" · ");
+}
+
 interface ListingDetailScreenProps {
   /** Workspace prefix the detail was opened from. */
   browseBase?: BrowseBase;
@@ -42,40 +77,36 @@ interface ListingDetailScreenProps {
 }
 
 /**
- * Buyer/Broker listing detail (Buyer App.html detail screen): tapped from Browse —
- * price card, payment terms, Make an offer / Buy, firm terms, and
- * view-all-from-seller. Offer/buy submit needs a backend trade contract.
+ * Buyer/Broker listing detail (FE doc §2). Buy and make-offer now start the
+ * shared negotiation state machine; sheets and the partial-availability dialog
+ * overlay this screen instead of navigating to a separate entry screen.
  */
 export function ListingDetailScreen({
   browseBase = "/browse",
   readOnly = false,
 }: ListingDetailScreenProps) {
-  const params = useLocalSearchParams<{
-    id?: string;
-    category?: string;
-    item?: string;
-    quality?: string;
-    weight?: string;
-    seller?: string;
-    price?: string;
-    bags?: string;
-    paymentTerms?: string;
-    priceValidUntil?: string;
-    sellerListingCount?: string;
-  }>();
+  const params = useLocalSearchParams<DetailParams>();
   const { listing, isLoading, error, retry } = useListingDetail({
-    id: typeof params.id === "string" ? params.id : undefined,
-    category: params.category,
-    item: params.item,
-    quality: params.quality,
-    weight: params.weight,
-    seller: params.seller,
-    price: params.price,
-    bags: params.bags,
-    paymentTerms: params.paymentTerms,
-    priceValidUntil: params.priceValidUntil,
+    id: stringParam(params.id),
+    category: stringParam(params.category),
+    item: stringParam(params.item),
+    quality: stringParam(params.quality),
+    weight: stringParam(params.weight),
+    seller: stringParam(params.seller),
+    price: stringParam(params.price),
+    bags: stringParam(params.bags),
+    paymentTerms: stringParam(params.paymentTerms),
+    priceValidUntil: stringParam(params.priceValidUntil),
   });
-  const [notice, setNotice] = useState<string | null>(null);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [qtyOpen, setQtyOpen] = useState(false);
+  const [cutoffOpen, setCutoffOpen] = useState(false);
+
+  const requestedBags = numberParam(params.requestedBags, 0);
+  const forceClosed = stringParam(params.simulateCutoff) === "1";
+  const availableBags = listing?.bags ?? 0;
 
   function viewAllFromSeller() {
     if (!listing) return;
@@ -85,18 +116,70 @@ export function ListingDetailScreen({
     });
   }
 
-  function pendingTrade() {
-    setNotice(
-      "Buying is not available yet because the trade service is not connected.",
-    );
+  function openOffer() {
+    if (isOfferWindowOpen(new Date(), forceClosed)) setOfferOpen(true);
+    else setCutoffOpen(true);
   }
+
+  function sendOffer(draft: OfferDraft) {
+    if (!listing) return;
+    const id = startOfferThread({
+      role: "buyer",
+      counterparty: listing.seller,
+      item: itemLabel(listing),
+      category: listing.category,
+      listedPrice: listing.price,
+      availableBags,
+      requestedBags: draft.bags,
+      price: draft.price,
+      bags: draft.bags,
+      note: draft.note,
+      voice: draft.voiceNote,
+      weightKg: listing.weightKg ?? undefined,
+      paymentTerms:
+        listing.paymentTerms != null ? String(listing.paymentTerms) : undefined,
+    });
+    setOfferOpen(false);
+    router.push({ pathname: "/negotiation/[id]", params: { id } });
+  }
+
+  function directTrade(bags: number) {
+    if (!listing) return;
+    const id = startDirectTradeThread({
+      role: "buyer",
+      counterparty: listing.seller,
+      item: itemLabel(listing),
+      category: listing.category,
+      listedPrice: listing.price,
+      availableBags,
+      requestedBags: bags,
+      price: listing.price,
+      bags,
+      weightKg: listing.weightKg ?? undefined,
+      paymentTerms:
+        listing.paymentTerms != null ? String(listing.paymentTerms) : undefined,
+    });
+    router.push({ pathname: "/negotiation/confirm", params: { id } });
+  }
+
+  function handleBuy() {
+    if (!listing) return;
+    const wanted = requestedBags > 0 ? requestedBags : availableBags;
+    if (availableBags > 0 && wanted > availableBags) {
+      setQtyOpen(true);
+      return;
+    }
+    directTrade(wanted > 0 ? wanted : 1);
+  }
+
+  const hasMedia = Boolean(
+    listing?.photoUrls?.length || listing?.videoUrls?.length,
+  );
+  const offerBags = requestedBags > 0 ? requestedBags : availableBags || undefined;
 
   return (
     <ScrollView
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: spacing.md },
-      ]}
+      contentContainerStyle={[styles.content, { paddingTop: spacing.md }]}
     >
       <BackButton accessibilityLabel="Back to browse" fallback={browseBase} />
 
@@ -118,14 +201,7 @@ export function ListingDetailScreen({
                 <Text style={styles.tagText}>{listing.category}</Text>
               </View>
             </View>
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>{listing.item}</Text>
-              {listing.quality ? (
-                <View style={styles.qualityChip}>
-                  <Text style={styles.qualityChipText}>{listing.quality}</Text>
-                </View>
-              ) : null}
-            </View>
+            <Text style={styles.title}>{itemLabel(listing)}</Text>
             <Text style={styles.muted}>
               {listing.weight} per bag · sold by {listing.seller}
             </Text>
@@ -141,10 +217,28 @@ export function ListingDetailScreen({
             </View>
           </View>
 
-          <ListingMedia
-            photoUrls={listing.photoUrls}
-            videoUrls={listing.videoUrls}
-          />
+          {readOnly ? (
+            <FormStatus
+              kind="info"
+              message="Broker accounts have read-only access to listings."
+            />
+          ) : (
+            <View style={styles.actions}>
+              <View style={styles.actionFlex}>
+                <Button
+                  title={`Buy at ${priceLabel(listing.price)}`}
+                  onPress={handleBuy}
+                />
+              </View>
+              <View style={styles.actionFlex}>
+                <Button
+                  title="Make an offer"
+                  variant="secondary"
+                  onPress={openOffer}
+                />
+              </View>
+            </View>
+          )}
 
           <Pressable
             style={styles.sellerCard}
@@ -155,80 +249,127 @@ export function ListingDetailScreen({
             <View>
               <Text style={styles.sellerName}>{listing.seller}</Text>
               <Text style={styles.muted}>
-                {params.sellerListingCount
-                  ? `${params.sellerListingCount} listing${
-                      params.sellerListingCount === "1" ? "" : "s"
+                {stringParam(params.sellerListingCount)
+                  ? `${stringParam(params.sellerListingCount)} listing${
+                      stringParam(params.sellerListingCount) === "1" ? "" : "s"
                     }`
                   : "View seller listings"}
               </Text>
             </View>
-            <Text style={styles.sellerChevron}>›</Text>
+            <ChevronIcon color={colors.muted} size={18} />
           </Pressable>
 
-          <View style={styles.specRow}>
-            <View style={[styles.card, styles.specCard]}>
-              <Text style={styles.kicker}>Quantity</Text>
-              <Text style={styles.body}>
-                {listing.bags ? `${listing.bags} bags` : "— bags"}
-              </Text>
-            </View>
-            <View style={[styles.card, styles.specCard]}>
-              <Text style={styles.kicker}>Weight / bag</Text>
-              <Text style={styles.body}>{listing.weight || "Not provided"}</Text>
-            </View>
-          </View>
-
           <View style={styles.card}>
-            <Text style={styles.kicker}>Payment terms</Text>
-            <Text style={styles.body}>
-              {listing.paymentTerms !== null &&
-              listing.paymentTerms !== undefined
-                ? `${listing.paymentTerms} days`
-                : "Terms on request"}
-            </Text>
-          </View>
-
-          {readOnly ? (
-            <FormStatus
-              kind="info"
-              message="Broker accounts have read-only access to listings."
+            <DetailRow
+              label="Quantity"
+              value={
+                listing.bags ? bagsLabel(listing.bags) : "Availability on request"
+              }
             />
-          ) : (
-            <View style={styles.actions}>
-              <View style={styles.actionFlex}>
-                <Button
-                  title="Make an offer"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/browse/negotiate",
-                      params: {
-                        id: String(listing.id),
-                        category: listing.category,
-                        item: listing.item,
-                        seller: listing.seller,
-                        price: String(listing.price),
-                        weight: listing.weight,
-                        bags: String(listing.bags ?? ""),
-                      },
-                    })
-                  }
+            <DetailRow
+              label="Weight per bag"
+              value={listing.weight || "Not provided"}
+            />
+            <DetailRow
+              label="Payment terms"
+              value={
+                listing.paymentTerms != null
+                  ? `${listing.paymentTerms} days`
+                  : "Terms on request"
+              }
+            />
+
+            <Pressable
+              style={styles.moreButton}
+              onPress={() => setDetailsOpen((open) => !open)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                detailsOpen ? "Hide more details" : "Show more details"
+              }
+            >
+              <Text style={styles.moreText}>
+                {detailsOpen ? "Less details" : "More details"}
+              </Text>
+              <ChevronIcon
+                direction={detailsOpen ? "up" : "down"}
+                color={colors.primary}
+                size={16}
+              />
+            </Pressable>
+
+            {detailsOpen ? (
+              <View style={styles.moreDetails}>
+                <DetailRow
+                  label="Moisture"
+                  value={listing.moisture || "Not provided"}
+                />
+                <DetailRow
+                  label="Color"
+                  value={listing.color || "Not provided"}
+                />
+                <DetailRow
+                  label="Brand / size"
+                  value={listing.size || "Not provided"}
+                />
+                <DetailRow
+                  label="Origin / notes"
+                  value={listing.notes || "Not provided"}
                 />
               </View>
-              <View style={styles.actionFlex}>
-                <Button title="Buy" onPress={pendingTrade} />
-              </View>
-            </View>
-          )}
-          {notice ? <FormStatus kind="info" message={notice} /> : null}
+            ) : null}
+          </View>
+
+          {hasMedia ? (
+            <ListingMedia
+              photoUrls={listing.photoUrls}
+              videoUrls={listing.videoUrls}
+            />
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.kicker}>Terms of Service</Text>
             <Text style={styles.body}>{FIRM_TERMS}</Text>
           </View>
 
+          {!readOnly && offerOpen ? (
+            <OfferSheet
+              visible
+              role="buyer"
+              listedPrice={listing.price}
+              availableBags={availableBags}
+              requestedBags={offerBags}
+              onClose={() => setOfferOpen(false)}
+              onSubmit={sendOffer}
+            />
+          ) : null}
+
+          <QtyMismatchDialog
+            visible={qtyOpen}
+            requestedBags={requestedBags}
+            availableBags={availableBags}
+            price={listing.price}
+            onCancel={() => setQtyOpen(false)}
+            onConfirm={() => {
+              setQtyOpen(false);
+              directTrade(availableBags);
+            }}
+          />
+
+          <CutoffSheet visible={cutoffOpen} onClose={() => setCutoffOpen(false)} />
         </>
       ) : null}
     </ScrollView>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -255,17 +396,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
-  sellerChevron: {
-    fontSize: 24,
-    color: colors.muted,
-  },
-  specRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  specCard: {
-    flex: 1,
-  },
   tagRow: {
     flexDirection: "row",
     marginBottom: spacing.sm,
@@ -281,27 +411,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.onPrimary,
   },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: 2,
-  },
   title: {
     fontSize: 22,
     fontWeight: "800",
     color: colors.text,
-  },
-  qualityChip: {
-    backgroundColor: colors.primaryTint,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  qualityChipText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.primaryDark,
+    marginBottom: 2,
   },
   muted: {
     fontSize: 14,
@@ -341,6 +455,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.accent2Dark,
   },
+  actions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  actionFlex: {
+    flex: 1,
+  },
   card: {
     gap: spacing.sm,
     backgroundColor: colors.card,
@@ -349,18 +470,44 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
   },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  rowLabel: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  rowValue: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: colors.text,
+    textAlign: "right",
+  },
+  moreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  moreText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  moreDetails: {
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
   body: {
     fontSize: 13.5,
     lineHeight: 20,
     color: colors.text,
     opacity: 0.85,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  actionFlex: {
-    flex: 1,
   },
   center: {
     alignItems: "center",

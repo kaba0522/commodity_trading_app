@@ -130,3 +130,75 @@ export interface Negotiation {
   statusLabel: string;
   offers: Offer[];
 }
+
+/** Lifecycle of an offer thread (ported from both negotiation prototypes). */
+export type NegotiationStatus =
+  | "your_turn"
+  | "waiting"
+  | "withdrawn"
+  | "declined"
+  | "cancelled"
+  | "confirmed"
+  | "completed";
+
+/** Recorded voice note attached to an offer or sent as a chat message. */
+export interface VoiceNote {
+  /** Local file URI returned by `expo-audio` after recording. */
+  uri: string;
+  durationMs: number;
+}
+
+/** One row in the negotiation conversation (offer card, chat bubble, system note). */
+export interface NegotiationMessage {
+  id: string;
+  kind: "system" | "offer" | "text" | "voice";
+  /** `you` = the signed-in role, `them` = the counterparty. */
+  author: "you" | "them" | "system";
+  price?: number;
+  /** Copy for system notices and plain chat bubbles. */
+  text?: string;
+  /** Optional note attached to an offer card. */
+  note?: string;
+  /** Playable recording for `kind: "voice"`. Legacy mocks may omit it. */
+  voice?: VoiceNote;
+  time: string;
+  status?: "declined" | "withdrawn" | "accepted";
+}
+
+/** Captured when both sides agree and the broker has been chosen. */
+export interface TradeDetails {
+  price: number;
+  bags: number;
+  broker: string;
+  date: string;
+}
+
+/**
+ * Role-aware negotiation thread. Buyer threads point at a listing/seller,
+ * seller threads point at a requirement/buyer — the same state machine drives
+ * both, only the labels and counterparty change.
+ */
+export interface NegotiationThread {
+  id: string;
+  role: "buyer" | "seller";
+  /** Seller name (buyer view) or buyer name (seller view). */
+  counterparty: string;
+  /** "Rajma · Disco · Bold" style display label. */
+  item: string;
+  category: string;
+  /** Listing price (buyer) or buyer's target price (seller). */
+  listedPrice: number;
+  availableBags: number;
+  requestedBags: number;
+  weightKg?: number;
+  paymentTerms?: string;
+  status: NegotiationStatus;
+  messages: NegotiationMessage[];
+  /** Agreed price waiting for broker selection on the trade-confirm screen. */
+  agreedPrice?: number;
+  /** Number of counter offers already sent — the prototype allows two. */
+  counterCount: number;
+  /** Short relative label used on the trades list ("2m ago"). */
+  updatedAt: string;
+  trade?: TradeDetails;
+}

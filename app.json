@@ -44,11 +44,19 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for listings and price-sheet scanning.",
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan price sheets.",
-          "microphonePermission": false
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for voice notes and video recording."
         }
       ],
       "expo-sharing",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to record voice notes for your trades.",
+          "recordAudioAndroid": true
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
