@@ -16,8 +16,11 @@ export type CloudinarySignedUrl =
   | { success: true; data: CloudinarySignData }
   | { success: false; error: string };
 
+/** Cloudinary stores audio on its video endpoint (§20 voice notes). */
+export type CloudinaryResourceType = "image" | "video" | "audio";
+
 export interface CloudinarySignParams {
-  resourceType: "image" | "video";
+  resourceType: CloudinaryResourceType;
 }
 
 export async function cloudinarySignUrl(
@@ -68,7 +71,7 @@ function uploadErrorMessage(raw: string, status: number): string {
 
 export async function cloudinaryUploadFile(
   asset: CloudinaryUploadAsset,
-  resourceType: "image" | "video",
+  resourceType: CloudinaryResourceType,
   token: string,
 ): Promise<CloudinaryUploadResult> {
   const signed = await cloudinarySignUrl({ resourceType }, token);
@@ -78,11 +81,14 @@ export async function cloudinaryUploadFile(
 
   const { uploadUrl, apiKey, signature, timestamp, folder, allowed_formats } =
     signed.data;
+  // §20: audio is signed for /video/upload — Cloudinary stores audio there.
+  const uploadPath = resourceType === "audio" ? "video" : resourceType;
+  const expectedResponseType = uploadPath;
   const uploadEndpoint = new URL(uploadUrl);
   if (
     uploadEndpoint.protocol !== "https:" ||
     uploadEndpoint.hostname !== "api.cloudinary.com" ||
-    !uploadEndpoint.pathname.endsWith(`/${resourceType}/upload`)
+    !uploadEndpoint.pathname.endsWith(`/${uploadPath}/upload`)
   ) {
     throw new Error("The server returned an invalid Cloudinary upload URL");
   }
@@ -133,7 +139,7 @@ export async function cloudinaryUploadFile(
     !result ||
     typeof result !== "object" ||
     typeof (result as Record<string, unknown>)["secure_url"] !== "string" ||
-    (result as Record<string, unknown>)["resource_type"] !== resourceType
+    (result as Record<string, unknown>)["resource_type"] !== expectedResponseType
   ) {
     throw new Error("Cloudinary returned an invalid upload response");
   }

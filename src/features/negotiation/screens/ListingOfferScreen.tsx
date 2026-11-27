@@ -1,16 +1,20 @@
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
+import { FormStatus } from "@/components/ui/FormStatus";
+import { getFriendlyApiError } from "@/core/api/client";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
 import { CutoffSheet } from "@/features/negotiation/components/CutoffSheet";
 import { OfferSheet, type OfferDraft } from "@/features/negotiation/components/OfferSheet";
 import { QtyMismatchDialog } from "@/features/negotiation/components/QtyMismatchDialog";
 import { FIRM_TERMS } from "@/features/negotiation/constants";
-import { startDirectTradeThread, startOfferThread } from "@/features/negotiation/store";
+import { useStartNegotiation } from "@/features/negotiation/hooks/useStartNegotiation";
 import {
+  getPartialFillInfo,
   isOfferWindowOpen,
   numberParam,
   stringParam,
   type NegotiationRole,
+  type PartialFillInfo,
 } from "@/features/negotiation/utils";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -61,17 +65,21 @@ type ListingParams = {
 };
 
 /**
- * Entry point for a negotiation. Buyer opens a listing; seller opens a buyer
- * requirement. Both use the same offer/buy-now state machine.
+ * Entry point for a negotiation. Buyer opens a listing and can offer or
+ * buy now; seller opens a buyer requirement and starts with a price offer.
  */
 export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenProps) {
   const params = useLocalSearchParams<ListingParams>();
   const seed = seedProp ?? seedFromParams(params, role);
   const forceClosed = stringParam(params.simulateCutoff) === "1";
+  const { start, buyNow } = useStartNegotiation();
 
   const [offerOpen, setOfferOpen] = useState(false);
   const [qtyOpen, setQtyOpen] = useState(false);
   const [cutoffOpen, setCutoffOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [partial, setPartial] = useState<PartialFillInfo | null>(null);
 
   const isBuyer = role === "buyer";
   const fallback = isBuyer ? "/browse" : "/requirements";
@@ -83,53 +91,98 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
   }
 
   function openOffer() {
-    if (offersAllowed()) setOfferOpen(true);
+    if (offersAllowed()) {
+      setFormError(null);
+      setOfferOpen(true);
+    }
   }
 
-  function sendOffer(draft: OfferDraft) {
-    const id = startOfferThread({
-      role,
-      counterparty: seed.counterparty,
-      item: seed.item,
-      category: seed.category ?? "Uncategorized",
-      listedPrice: seed.listedPrice,
-      availableBags: seed.availableBags,
-      requestedBags: draft.bags,
-      price: draft.price,
-      bags: draft.bags,
-      note: draft.note,
-      voice: draft.voiceNote,
-      weightKg: seed.weightKg,
-      paymentTerms: seed.paymentTerms,
-    });
+  function listingId(): string {
+    return seed.id ?? "";
+  }
+
+  function showError(e: unknown, fallbackMessage: string): boolean {
+    const info = getPartialFillInfo(e);
+    if (info && !partial) {
+      setPartial(info);
+      setQtyOpen(true);
+      return true;
+    }
+    setFormError(getFriendlyApiError(e, fallbackMessage));
+    return false;
+  }
+
+  async function sendOffer(draft: OfferDraft) {
+    if (!listingId()) {
+      setFormError("This listing is missing its id. Go back and reopen it.");
+      return;
+    }
     setOfferOpen(false);
-    router.push({ pathname: "/negotiation/[id]", params: { id } });
+    setBusy(true);
+    setFormError(null);
+    try {
+      const thread = await start({
+        listingId: listingId(),
+        price: draft.price,
+        bagsRequested: draft.bags,
+        note: draft.note,
+        voice: draft.voiceNote,
+      });
+      router.push({ pathname: "/negotiation/[id]", params: { id: thread.id } });
+    } catch (e) {
+      showError(e, "Could not send your offer");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function directTrade(bags: number) {
-    const id = startDirectTradeThread({
-      role,
-      counterparty: seed.counterparty,
-      item: seed.item,
-      category: seed.category ?? "Uncategorized",
-      listedPrice: seed.listedPrice,
-      availableBags: seed.availableBags,
-      requestedBags: bags,
-      price: seed.listedPrice,
-      bags,
-      weightKg: seed.weightKg,
-      paymentTerms: seed.paymentTerms,
-    });
-    router.push({ pathname: "/negotiation/confirm", params: { id } });
+  async function directTrade(bags: number, acceptPartial = false) {
+    if (!listingId()) {
+      setFormError("This listing is missing its id. Go back and reopen it.");
+      return;
+    }
+    setBusy(true);
+    setFormError(null);
+    try {
+      const result = await buyNow({
+        listingId: listingId(),
+        bagsRequested: bags,
+        acceptPartial,
+      });
+      router.push({
+        pathname: "/negotiation/confirm",
+        params: {
+          id: result.thread.id,
+          ...(result.tradeId ? { tradeId: result.tradeId } : {}),
+        },
+      });
+    } catch (e) {
+      showError(e, "Could not confirm the trade");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function handleDirectTrade() {
+    if (!isBuyer) {
+      // Seller-side BUY requirements have no direct trade: start with a price.
+      void sendOffer({
+        price: seed.listedPrice,
+        bags: seed.requestedBags,
+        note: "Offer at your target price",
+      });
+      return;
+    }
     if (seed.availableBags > 0 && seed.requestedBags > seed.availableBags) {
+      setPartial({ available: seed.availableBags, price: seed.listedPrice });
       setQtyOpen(true);
       return;
     }
-    directTrade(seed.requestedBags);
+    void directTrade(seed.requestedBags);
   }
+
+  const dialogAvailable = partial?.available ?? seed.availableBags;
+  const dialogPrice = partial?.price ?? seed.listedPrice;
 
   return (
     <ScrollView
@@ -143,6 +196,8 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
         fallback={fallback}
       />
       <Text style={styles.title}>Negotiate</Text>
+
+      {formError ? <FormStatus kind="error" message={formError} /> : null}
 
       <View style={styles.card}>
         <Text style={styles.kicker}>
@@ -200,13 +255,19 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
           title={
             isBuyer
               ? `Buy at ${priceLabel(seed.listedPrice)}`
-              : "Accept target price"
+              : `Offer at ${priceLabel(seed.listedPrice)}`
           }
           onPress={handleDirectTrade}
+          disabled={busy}
         />
       </View>
 
-      <Button title="Make an offer" onPress={openOffer} variant="secondary" />
+      <Button
+        title="Make an offer"
+        onPress={openOffer}
+        variant="secondary"
+        disabled={busy}
+      />
 
       <View style={styles.termsCard}>
         <Text style={styles.kicker}>Terms of service</Text>
@@ -221,19 +282,30 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
           availableBags={seed.availableBags}
           requestedBags={seed.requestedBags}
           onClose={() => setOfferOpen(false)}
-          onSubmit={sendOffer}
+          onSubmit={(draft) => void sendOffer(draft)}
         />
       ) : null}
 
       <QtyMismatchDialog
         visible={qtyOpen}
         requestedBags={seed.requestedBags}
-        availableBags={seed.availableBags}
-        price={seed.listedPrice}
-        onCancel={() => setQtyOpen(false)}
-        onConfirm={() => {
+        availableBags={dialogAvailable}
+        price={dialogPrice}
+        onCancel={() => {
           setQtyOpen(false);
-          directTrade(seed.availableBags);
+          setPartial(null);
+        }}
+        onConfirm={() => {
+          const bags = dialogAvailable;
+          setQtyOpen(false);
+          if (isBuyer) void directTrade(bags, true);
+          else {
+            void sendOffer({
+              price: dialogPrice,
+              bags,
+              note: "Offer at your target price",
+            });
+          }
         }}
       />
 

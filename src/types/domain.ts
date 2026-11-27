@@ -112,6 +112,31 @@ export interface Order {
   status: string;
 }
 
+/** Backend trade record (§22C) — richer than the legacy `Order` card shape. */
+export interface TradeRecord {
+  id: string;
+  negotiationId?: string;
+  listingId?: string;
+  buyerId?: string;
+  sellerId?: string;
+  buyer: string;
+  seller: string;
+  item: string;
+  category?: string;
+  price: number;
+  bags: number;
+  status: string;
+  brokerId?: string;
+  brokerName?: string;
+  brokerPending: boolean;
+  buyerCanChooseBroker: boolean;
+  confirmedAt?: string;
+  createdAt?: string;
+  /** Backend commission, when the broker is involved. */
+  commission?: number;
+  commissionRate?: number;
+}
+
 export interface Offer {
   by: "you" | "them";
   price: number;
@@ -163,6 +188,12 @@ export interface NegotiationMessage {
   voice?: VoiceNote;
   time: string;
   status?: "declined" | "withdrawn" | "accepted";
+  /** Backend offer id — required by POST /negotiations/offers/:id/accept|decline. */
+  offerId?: string;
+  /** Backend sender id, used to normalise author. */
+  byUserId?: string;
+  /** Admin acted on behalf of this party. */
+  onBehalf?: boolean;
 }
 
 /** Captured when both sides agree and the broker has been chosen. */
@@ -196,9 +227,31 @@ export interface NegotiationThread {
   messages: NegotiationMessage[];
   /** Agreed price waiting for broker selection on the trade-confirm screen. */
   agreedPrice?: number;
-  /** Number of counter offers already sent — the prototype allows two. */
+  /** Number of counter offers already sent — server limit defaults to two. */
   counterCount: number;
   /** Short relative label used on the trades list ("2m ago"). */
   updatedAt: string;
   trade?: TradeDetails;
+
+  /* ---- Backend negotiation fields (§22D) ---- */
+  /** Listing/requirement UUID the negotiation is about. */
+  listingId?: string;
+  /** Trade UUID once an offer has been accepted. */
+  tradeId?: string;
+  /** Backend turn/counter counters — overrides the local MAX_COUNTER_OFFERS. */
+  counters?: {
+    max: number;
+    buyer: { used: number; left: number };
+    seller: { used: number; left: number };
+  };
+  /** When the pending offer expires (server setting offer_expiry_time). */
+  expiresAt?: string | null;
+  closeReason?: string | null;
+  /** Backend Trades-tab status, e.g. RESPOND or CANCELLED. */
+  uiStatus?: "RESPOND" | "WAITING" | "COMPLETED" | "CANCELLED";
+  /** Human label for backend cancellations ("Withdrawn", "Quantity mismatch"). */
+  reasonLabel?: string;
+  /** Buyer still has to pick a broker on the resulting trade. */
+  brokerPending?: boolean;
+  buyerCanChooseBroker?: boolean;
 }

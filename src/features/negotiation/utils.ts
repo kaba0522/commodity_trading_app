@@ -5,7 +5,35 @@ import {
   STATUS_LABELS,
 } from "@/features/negotiation/constants";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
+import { ApiError } from "@/core/api/client";
 import type { NegotiationThread } from "@/types/domain";
+
+export interface PartialFillInfo {
+  available: number;
+  price?: number;
+}
+
+/** Server rejections like `{ code: "PARTIAL_FILL_REQUIRED", details: { available } }`. */
+export function getPartialFillInfo(error: unknown): PartialFillInfo | null {
+  if (!(error instanceof ApiError) || error.code !== "PARTIAL_FILL_REQUIRED") return null;
+  const details = error.details;
+  if (!details || typeof details !== "object" || Array.isArray(details)) return null;
+  const record = details as Record<string, unknown>;
+  const rawAvailable =
+    record["available"] ?? record["availableBags"] ?? record["quantityBags"] ?? record["bags"];
+  const available =
+    typeof rawAvailable === "string" ? Number(rawAvailable) : rawAvailable;
+  if (typeof available !== "number" || !Number.isFinite(available) || available <= 0) {
+    return null;
+  }
+  const rawPrice = record["price"] ?? record["finalPrice"];
+  const price = typeof rawPrice === "string" ? Number(rawPrice) : rawPrice;
+  return {
+    available,
+    price:
+      typeof price === "number" && Number.isFinite(price) && price > 0 ? price : undefined,
+  };
+}
 
 /** Prototype rule: an offer cannot be below 90% of the listed price. */
 export function offerFloor(listedPrice: number): number {
@@ -75,7 +103,10 @@ export function latestCounterPrice(thread: NegotiationThread): number | null {
 }
 
 export function countersRemaining(thread: NegotiationThread): number {
-  return Math.max(0, MAX_COUNTER_OFFERS - thread.counterCount);
+  const serverLeft = thread.counters?.[thread.role]?.left;
+  return serverLeft != null
+    ? Math.max(0, serverLeft)
+    : Math.max(0, (thread.counters?.max ?? MAX_COUNTER_OFFERS) - thread.counterCount);
 }
 
 export function statusLabel(thread: NegotiationThread): string {

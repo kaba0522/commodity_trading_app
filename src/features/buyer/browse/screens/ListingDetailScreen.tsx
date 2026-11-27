@@ -2,6 +2,7 @@ import { BackButton } from "@/components/common/BackButton";
 import { ChevronIcon } from "@/components/common/ChevronIcon";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
+import { getFriendlyApiError } from "@/core/api/client";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
 import type { BrowseBase } from "@/features/buyer/browse/hooks/useBrowse";
 import { useListingDetail } from "@/features/buyer/browse/hooks/useListingDetail";
@@ -13,14 +14,13 @@ import {
 } from "@/features/negotiation/components/OfferSheet";
 import { QtyMismatchDialog } from "@/features/negotiation/components/QtyMismatchDialog";
 import { FIRM_TERMS } from "@/features/negotiation/constants";
+import { useStartNegotiation } from "@/features/negotiation/hooks/useStartNegotiation";
 import {
-  startDirectTradeThread,
-  startOfferThread,
-} from "@/features/negotiation/store";
-import {
+  getPartialFillInfo,
   isOfferWindowOpen,
   numberParam,
   stringParam,
+  type PartialFillInfo,
 } from "@/features/negotiation/utils";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -99,10 +99,14 @@ export function ListingDetailScreen({
     priceValidUntil: stringParam(params.priceValidUntil),
   });
 
+  const { start, buyNow } = useStartNegotiation();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [qtyOpen, setQtyOpen] = useState(false);
   const [cutoffOpen, setCutoffOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [partial, setPartial] = useState<PartialFillInfo | null>(null);
 
   const requestedBags = numberParam(params.requestedBags, 0);
   const forceClosed = stringParam(params.simulateCutoff) === "1";
@@ -117,59 +121,76 @@ export function ListingDetailScreen({
   }
 
   function openOffer() {
+    setFormError(null);
     if (isOfferWindowOpen(new Date(), forceClosed)) setOfferOpen(true);
     else setCutoffOpen(true);
   }
 
-  function sendOffer(draft: OfferDraft) {
-    if (!listing) return;
-    const id = startOfferThread({
-      role: "buyer",
-      counterparty: listing.seller,
-      item: itemLabel(listing),
-      category: listing.category,
-      listedPrice: listing.price,
-      availableBags,
-      requestedBags: draft.bags,
-      price: draft.price,
-      bags: draft.bags,
-      note: draft.note,
-      voice: draft.voiceNote,
-      weightKg: listing.weightKg ?? undefined,
-      paymentTerms:
-        listing.paymentTerms != null ? String(listing.paymentTerms) : undefined,
-    });
-    setOfferOpen(false);
-    router.push({ pathname: "/negotiation/[id]", params: { id } });
+  function showError(e: unknown, fallbackMessage: string): boolean {
+    const info = getPartialFillInfo(e);
+    if (info && !partial) {
+      setPartial(info);
+      setQtyOpen(true);
+      return true;
+    }
+    setFormError(getFriendlyApiError(e, fallbackMessage));
+    return false;
   }
 
-  function directTrade(bags: number) {
+  async function sendOffer(draft: OfferDraft) {
     if (!listing) return;
-    const id = startDirectTradeThread({
-      role: "buyer",
-      counterparty: listing.seller,
-      item: itemLabel(listing),
-      category: listing.category,
-      listedPrice: listing.price,
-      availableBags,
-      requestedBags: bags,
-      price: listing.price,
-      bags,
-      weightKg: listing.weightKg ?? undefined,
-      paymentTerms:
-        listing.paymentTerms != null ? String(listing.paymentTerms) : undefined,
-    });
-    router.push({ pathname: "/negotiation/confirm", params: { id } });
+    setOfferOpen(false);
+    setBusy(true);
+    setFormError(null);
+    try {
+      const thread = await start({
+        listingId: String(listing.id),
+        price: draft.price,
+        bagsRequested: draft.bags,
+        note: draft.note,
+        voice: draft.voiceNote,
+      });
+      router.push({ pathname: "/negotiation/[id]", params: { id: thread.id } });
+    } catch (e) {
+      showError(e, "Could not send your offer");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function directTrade(bags: number, acceptPartial = false) {
+    if (!listing) return;
+    setBusy(true);
+    setFormError(null);
+    try {
+      const result = await buyNow({
+        listingId: String(listing.id),
+        bagsRequested: bags,
+        acceptPartial,
+      });
+      router.push({
+        pathname: "/negotiation/confirm",
+        params: {
+          id: result.thread.id,
+          ...(result.tradeId ? { tradeId: result.tradeId } : {}),
+        },
+      });
+    } catch (e) {
+      showError(e, "Could not confirm the trade");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function handleBuy() {
     if (!listing) return;
     const wanted = requestedBags > 0 ? requestedBags : availableBags;
     if (availableBags > 0 && wanted > availableBags) {
+      setPartial({ available: availableBags, price: listing.price });
       setQtyOpen(true);
       return;
     }
-    directTrade(wanted > 0 ? wanted : 1);
+    void directTrade(wanted > 0 ? wanted : 1);
   }
 
   const hasMedia = Boolean(
@@ -217,6 +238,8 @@ export function ListingDetailScreen({
             </View>
           </View>
 
+          {formError ? <FormStatus kind="error" message={formError} /> : null}
+
           {readOnly ? (
             <FormStatus
               kind="info"
@@ -228,6 +251,7 @@ export function ListingDetailScreen({
                 <Button
                   title={`Buy at ${priceLabel(listing.price)}`}
                   onPress={handleBuy}
+                  disabled={busy}
                 />
               </View>
               <View style={styles.actionFlex}>
@@ -235,6 +259,7 @@ export function ListingDetailScreen({
                   title="Make an offer"
                   variant="secondary"
                   onPress={openOffer}
+                  disabled={busy}
                 />
               </View>
             </View>
@@ -339,19 +364,23 @@ export function ListingDetailScreen({
               availableBags={availableBags}
               requestedBags={offerBags}
               onClose={() => setOfferOpen(false)}
-              onSubmit={sendOffer}
+              onSubmit={(draft) => void sendOffer(draft)}
             />
           ) : null}
 
           <QtyMismatchDialog
             visible={qtyOpen}
-            requestedBags={requestedBags}
-            availableBags={availableBags}
-            price={listing.price}
-            onCancel={() => setQtyOpen(false)}
-            onConfirm={() => {
+            requestedBags={requestedBags || availableBags}
+            availableBags={partial?.available ?? availableBags}
+            price={partial?.price ?? listing.price}
+            onCancel={() => {
               setQtyOpen(false);
-              directTrade(availableBags);
+              setPartial(null);
+            }}
+            onConfirm={() => {
+              const bags = partial?.available ?? availableBags;
+              setQtyOpen(false);
+              void directTrade(bags, true);
             }}
           />
 

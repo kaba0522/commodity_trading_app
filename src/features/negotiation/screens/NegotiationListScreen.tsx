@@ -1,6 +1,8 @@
 import { ChevronIcon } from "@/components/common/ChevronIcon";
+import { Button } from "@/components/ui/Button";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
-import { useNegotiationThreads } from "@/features/negotiation/store";
+import { useNegotiations } from "@/features/negotiation/hooks/useNegotiations";
 import {
   latestOfferPrice,
   statusLabel,
@@ -11,7 +13,14 @@ import { spacing } from "@/theme/spacing";
 import type { NegotiationStatus, NegotiationThread } from "@/types/domain";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 type Tab = "active" | "completed";
 
@@ -29,7 +38,8 @@ export function NegotiationListScreen({
   // Re-derive from the route param when it changes without a setState-in-effect.
   const [selection, setSelection] = useState({ initialTab, tab: initialTab });
   const tab = selection.initialTab === initialTab ? selection.tab : initialTab;
-  const threads = useNegotiationThreads().filter(
+  const { threads: serverThreads, isLoading, error, retry } = useNegotiations(tab, role);
+  const threads = serverThreads.filter(
     (thread) => thread.role === role && belongsToTab(thread, tab),
   );
 
@@ -73,7 +83,17 @@ export function NegotiationListScreen({
         </Pressable>
       </View>
 
-      {threads.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.emptyText}>Loading negotiations…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.empty}>
+          <FormStatus kind="error" message={error} />
+          <Button title="Retry" variant="secondary" onPress={() => void retry()} />
+        </View>
+      ) : threads.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>
             {tab === "active"
@@ -301,6 +321,7 @@ const styles = StyleSheet.create({
   empty: {
     paddingVertical: spacing.xl,
     alignItems: "center",
+    gap: spacing.sm,
   },
   emptyText: {
     fontSize: 13,

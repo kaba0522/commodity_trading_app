@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { negotiationApi } from "@/features/negotiation/api/negotiationApi";
 import { requirementsApi } from "@/features/buyer/requirements/api/requirementsApi";
 import type { BuyerRequirement } from "@/types/domain";
 
@@ -19,7 +20,7 @@ export interface NegotiationSeed {
 }
 
 export interface NegotiationStatus {
-  kind: "info";
+  kind: "info" | "error";
   message: string;
 }
 
@@ -46,14 +47,12 @@ function seedFromParams(seed: NegotiationSeed): BuyerRequirement | null {
 }
 
 /**
- * Seller negotiate state (Seller App.html `isNegotiate`): the buyer
- * requirement under discussion plus the seller's counter-offer draft.
- * The requirement refreshes live via `GET /listings/:id`; seeded from the
- * tapped row so the page renders instantly. Accept/send needs a backend
- * offers contract — until then the actions say so instead of faking a trade.
+ * Seller requirement state: the requirement under discussion plus the
+ * seller's price draft. Starting a thread uses `POST /negotiations` — a seller
+ * on a BUY requirement always opens with a price (there is no direct trade).
  */
 export function useNegotiation(seed: NegotiationSeed) {
-  const { runWithAuth } = useAuth();
+  const { runWithAuth, session } = useAuth();
   const { id, item, buyer } = seed;
   const [requirement, setRequirement] = useState<BuyerRequirement | null>(() =>
     seedFromParams(seed),
@@ -63,6 +62,7 @@ export function useNegotiation(seed: NegotiationSeed) {
   const [offer, setOffer] = useState("");
   const [offerError, setOfferError] = useState<string | null>(null);
   const [status, setStatus] = useState<NegotiationStatus | null>(null);
+  const currentUserId = session?.user.id;
 
   const load = useCallback(async () => {
     if (!id) {
@@ -98,6 +98,34 @@ export function useNegotiation(seed: NegotiationSeed) {
     };
   }, [load]);
 
+  async function openThread(price: number): Promise<void> {
+    if (!requirement?.id) {
+      setOfferError("This requirement is missing its id.");
+      return;
+    }
+    setOfferError(null);
+    try {
+      const thread = await runWithAuth((token) =>
+        negotiationApi.start(
+          {
+            listingId: String(requirement.id),
+            price,
+            bagsRequested: requirement.bags > 0 ? requirement.bags : 1,
+          },
+          token,
+          currentUserId,
+          "seller",
+        ),
+      );
+      setStatus({ kind: "info", message: `Offer sent · thread ${thread.id}` });
+    } catch (e) {
+      setStatus({
+        kind: "error",
+        message: getFriendlyApiError(e, "Could not send your offer"),
+      });
+    }
+  }
+
   function parseOffer(): number | null {
     const value = Number(offer.trim());
     return offer.trim() !== "" && Number.isFinite(value) && value > 0
@@ -105,29 +133,22 @@ export function useNegotiation(seed: NegotiationSeed) {
       : null;
   }
 
-  function acceptTarget() {
-    setOfferError(null);
+  async function acceptTarget() {
     const target = requirement?.targetPrice ?? 0;
-    setStatus({
-      kind: "info",
-      message:
-        target > 0
-          ? `You accepted the buyer's target. Offer submit arrives with the backend offers API.`
-          : "This requirement is open to offers — send your price below. Offer submit arrives with the backend offers API.",
-    });
+    if (target <= 0) {
+      setOfferError("This requirement is open to offers — send your price below.");
+      return;
+    }
+    await openThread(target);
   }
 
-  function sendOffer() {
+  async function sendOffer() {
     const value = parseOffer();
     if (value === null) {
       setOfferError("Enter your offer price per bag");
       return;
     }
-    setOfferError(null);
-    setStatus({
-      kind: "info",
-      message: `Your offer is drafted. Offer submit arrives with the backend offers API.`,
-    });
+    await openThread(value);
   }
 
   return {

@@ -2,35 +2,59 @@ import { AppTabBar, BUYER_BAR, SELLER_BAR } from "@/components/common/AppTabBar"
 import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
-import { bagsLabel, priceLabel } from "@/core/utils/format";
+import { getFriendlyApiError } from "@/core/api/client";
+import { bagsLabel, formatDateLabel, priceLabel } from "@/core/utils/format";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Sheet } from "@/features/negotiation/components/Sheet";
-import { confirmTrade, useNegotiationThread } from "@/features/negotiation/store";
-import { latestOfferPrice, type NegotiationRole } from "@/features/negotiation/utils";
-import { brokersForRole, NO_BROKER } from "@/mocks/brokers";
+import { useBrokerOptions } from "@/features/negotiation/hooks/useBrokerOptions";
+import { useTrade } from "@/features/negotiation/hooks/useTrade";
+import { useTradeActions } from "@/features/negotiation/hooks/useTradeActions";
+import type { NegotiationRole } from "@/features/negotiation/utils";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import type { TradeRecord } from "@/types/domain";
 import { Redirect, router } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 interface TradeConfirmationScreenProps {
   id?: string;
+  tradeId?: string;
 }
 
-/** Trade Confirmed (FE doc §6) — shared by buyer buy-now and seller accept. */
-export function TradeConfirmationScreen({ id }: TradeConfirmationScreenProps) {
-  const threadOrNull = useNegotiationThread(id);
-  const { session } = useAuth();
-  const [broker, setBroker] = useState("");
-  const [doneOpen, setDoneOpen] = useState(false);
+const SELF_BROKER = "Self / no broker";
 
-  const role: NegotiationRole = threadOrNull?.role ?? "buyer";
+/** Trade Confirmed (FE doc §6) — the buyer picks the broker once. */
+export function TradeConfirmationScreen({
+  id,
+  tradeId: initialTradeId,
+}: TradeConfirmationScreenProps) {
+  const { session } = useAuth();
+  const {
+    trade,
+    setTrade,
+    isLoading,
+    error: loadError,
+    retry,
+  } = useTrade(initialTradeId, id);
+  const { options, isLoading: brokersLoading } = useBrokerOptions();
+  const { chooseBroker } = useTradeActions();
+  const [brokerLabel, setBrokerLabel] = useState("");
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const backendRole = resolveBackendRole(session?.user);
-  if (threadOrNull && backendRole !== threadOrNull.role) {
-    return <Redirect href={role === "seller" ? "/requirements" : "/browse"} />;
-  }
+  const role: NegotiationRole = backendRole === "seller" ? "seller" : "buyer";
+  if (backendRole === "broker") return <Redirect href="/browse" />;
 
   const tabItems = role === "seller" ? SELLER_BAR : BUYER_BAR;
   const activeTab = role === "seller" ? "orders" : "trades";
@@ -51,26 +75,34 @@ export function TradeConfirmationScreen({ id }: TradeConfirmationScreenProps) {
     else if (target === "profile") router.replace("/profile");
   }
 
-  if (!threadOrNull) {
-    return (
-      <View style={styles.screen}>
-        <View style={styles.emptyScreen}>
-          <BackButton fallback={role === "seller" ? "/orders" : "/trades"} />
-          <Text style={styles.emptyText}>This trade is no longer available.</Text>
-        </View>
-        <AppTabBar items={tabItems} active={activeTab} onPress={navigateTab} />
-      </View>
-    );
-  }
+  const brokerLabels = [SELF_BROKER, ...options.map((option) => option.name)];
+  const needsBroker =
+    role === "buyer" &&
+    Boolean(trade?.buyerCanChooseBroker || trade?.brokerPending);
 
-  const thread = threadOrNull;
-  const price = thread.agreedPrice ?? latestOfferPrice(thread);
-  const bags = thread.requestedBags;
-  const brokerOptions = Array.from(new Set([...brokersForRole(role), NO_BROKER]));
-
-  function finish() {
-    if (!broker) return;
-    confirmTrade(thread.id, broker, bags);
+  async function finish() {
+    if (!trade) return;
+    setFormError(null);
+    if (needsBroker && !trade.brokerId) {
+      if (!brokerLabel) {
+        setFormError("Select a broker or choose self before continuing.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const selected = options.find((option) => option.name === brokerLabel);
+        const updated = await chooseBroker(
+          trade.id,
+          selected ? { brokerId: selected.id } : { isSelf: true },
+        );
+        setTrade(updated);
+      } catch (e) {
+        setFormError(getFriendlyApiError(e, "Could not select a broker"));
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
     setDoneOpen(true);
   }
 
@@ -82,6 +114,10 @@ export function TradeConfirmationScreen({ id }: TradeConfirmationScreenProps) {
     });
   }
 
+  const backTarget = id
+    ? { pathname: "/negotiation/[id]" as const, params: { id } }
+    : (role === "seller" ? "/orders" : "/trades");
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -89,60 +125,102 @@ export function TradeConfirmationScreen({ id }: TradeConfirmationScreenProps) {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <BackButton
-          accessibilityLabel="Back to negotiation"
-          fallback={{ pathname: "/negotiation/[id]", params: { id: thread.id } }}
-        />
+        <BackButton accessibilityLabel="Back to negotiation" fallback={backTarget} />
 
-        <View style={styles.hero}>
-          <View style={styles.successIcon}>
-            <Text style={styles.check}>✓</Text>
+        {isLoading && !trade ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.muted}>Loading trade…</Text>
           </View>
-          <Text style={styles.heroTitle}>
-            {role === "seller" ? "Trade agreed" : "Trade Confirmed!"}
-          </Text>
-          <Text style={styles.heroSubtitle}>Your order has been confirmed</Text>
-        </View>
-
-        <View style={styles.card}>
-          <DetailRow label="Item" value={thread.item} />
-          <DetailRow
-            label={role === "seller" ? "Buyer" : "Seller"}
-            value={thread.counterparty}
-          />
-          <DetailRow label="Price" value={priceLabel(price)} strong />
-          <DetailRow label="Quantity" value={bagsLabel(bags)} />
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Select Broker</Text>
-          <Text style={styles.cardHint}>Select Broker involved in the deal</Text>
-          <Dropdown
-            label="Broker"
-            placeholder="Select a broker"
-            value={broker}
-            options={brokerOptions}
-            onChange={setBroker}
-          />
-        </View>
-
-        <Button title="Done" onPress={finish} disabled={!broker} />
-
-        <Sheet visible={doneOpen} title="Trade confirmed" onClose={closeDone}>
-          <View style={styles.doneCenter}>
-            <View style={styles.doneIcon}>
-              <Text style={styles.check}>✓</Text>
+        ) : !trade ? (
+          <View style={styles.center}>
+            <FormStatus
+              kind="error"
+              message={loadError ?? "This trade is no longer available."}
+            />
+            {loadError ? (
+              <Button title="Retry" variant="secondary" onPress={() => void retry()} />
+            ) : null}
+          </View>
+        ) : (
+          <>
+            <View style={styles.hero}>
+              <View style={styles.successIcon}>
+                <Text style={styles.check}>✓</Text>
+              </View>
+              <Text style={styles.heroTitle}>
+                {role === "seller" ? "Trade agreed" : "Trade Confirmed!"}
+              </Text>
+              <Text style={styles.heroSubtitle}>Your order has been confirmed</Text>
             </View>
-            <Text style={styles.doneText}>
-              Your Trade confirmation details can be seen in Completed Trades
-              section and will also be sent on your Whatsapp.
-            </Text>
-          </View>
-          <Button title="OK" onPress={closeDone} />
-        </Sheet>
+
+            <TradeCard trade={trade} role={role} />
+
+            {formError ? <FormStatus kind="error" message={formError} /> : null}
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Broker</Text>
+              {needsBroker && !trade.brokerId ? (
+                <>
+                  <Text style={styles.cardHint}>Select the broker involved in the deal</Text>
+                  <Dropdown
+                    label="Broker"
+                    placeholder={
+                      brokersLoading ? "Loading brokers…" : "Select a broker"
+                    }
+                    value={brokerLabel}
+                    options={brokerLabels}
+                    onChange={setBrokerLabel}
+                  />
+                </>
+              ) : (
+                <Text style={styles.brokerValue}>
+                  {trade.brokerName ?? (needsBroker ? "Pending selection" : "No broker")}
+                </Text>
+              )}
+            </View>
+
+            <Button title="Done" onPress={() => void finish()} disabled={busy} />
+          </>
+        )}
       </ScrollView>
 
+      <Sheet visible={doneOpen} title="Trade confirmed" onClose={closeDone}>
+        <View style={styles.doneCenter}>
+          <View style={styles.doneIcon}>
+            <Text style={styles.check}>✓</Text>
+          </View>
+          <Text style={styles.doneText}>
+            Your Trade confirmation details can be seen in Completed Trades
+            section and will also be sent on your Whatsapp.
+          </Text>
+        </View>
+        <Button title="OK" onPress={closeDone} />
+      </Sheet>
+
       <AppTabBar items={tabItems} active={activeTab} onPress={navigateTab} />
+    </View>
+  );
+}
+
+function TradeCard({
+  trade,
+  role,
+}: {
+  trade: TradeRecord;
+  role: NegotiationRole;
+}) {
+  const date = trade.confirmedAt ?? trade.createdAt;
+  return (
+    <View style={styles.card}>
+      <DetailRow label="Item" value={trade.item} />
+      <DetailRow
+        label={role === "buyer" ? "Seller" : "Buyer"}
+        value={role === "buyer" ? trade.seller : trade.buyer}
+      />
+      <DetailRow label="Price" value={priceLabel(trade.price)} strong />
+      <DetailRow label="Quantity" value={bagsLabel(trade.bags)} />
+      {date ? <DetailRow label="Date" value={formatDateLabel(date)} /> : null}
     </View>
   );
 }
@@ -182,18 +260,16 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: colors.background,
   },
-  emptyScreen: {
+  center: {
     flex: 1,
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.xl,
   },
-  emptyText: {
-    fontSize: 14,
+  muted: {
+    fontSize: 13,
     color: colors.muted,
-    textAlign: "center",
-    marginTop: spacing.xl,
   },
   hero: {
     alignItems: "center",
@@ -259,6 +335,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
     marginTop: -spacing.xs,
+  },
+  brokerValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
   },
   doneCenter: {
     alignItems: "center",

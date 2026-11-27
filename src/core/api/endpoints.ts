@@ -96,6 +96,84 @@ export const QUALITIES_ENDPOINTS = {
   },
 } as const;
 
+/** §22D — Negotiation (offers, counters, chat) and its admin on-behalf twins. */
+export const NEGOTIATION_ENDPOINTS = {
+  start: "/negotiations",
+  buyNow: "/negotiations/buy-now",
+  byId: (id: string) => `/negotiations/${id}`,
+  list: (params: {
+    tab?: "active" | "completed";
+    page?: number;
+    limit?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params.tab) q.set("tab", params.tab);
+    q.set("limit", String(params.limit ?? 100));
+    if (params.page) q.set("page", String(params.page));
+    return `/negotiations?${q.toString()}`;
+  },
+  counter: (id: string) => `/negotiations/${id}/counter`,
+  accept: (offerId: string) => `/negotiations/offers/${offerId}/accept`,
+  decline: (offerId: string) => `/negotiations/offers/${offerId}/decline`,
+  withdraw: (id: string) => `/negotiations/${id}/withdraw`,
+  messages: (id: string) => `/negotiations/${id}/messages`,
+  // Admin acting for a buyer/seller. Body = normal body + onBehalfOfUserId.
+  onBehalf: {
+    start: "/negotiations/on-behalf",
+    counter: (id: string) => `/negotiations/on-behalf/${id}/counter`,
+    accept: (offerId: string) =>
+      `/negotiations/on-behalf/offers/${offerId}/accept`,
+    decline: (offerId: string) =>
+      `/negotiations/on-behalf/offers/${offerId}/decline`,
+    withdraw: (id: string) => `/negotiations/on-behalf/${id}/withdraw`,
+    messages: (id: string) => `/negotiations/on-behalf/${id}/messages`,
+  },
+} as const;
+
+/** §22C — Trades created by accept / Buy-now / price-drop auto-close. */
+export const TRADES_ENDPOINTS = {
+  mine: (params?: { status?: "confirmed" | "cancelled"; limit?: number }) => {
+    const q = new URLSearchParams({ limit: String(params?.limit ?? 100) });
+    if (params?.status) q.set("status", params.status);
+    return `/trades/me?${q.toString()}`;
+  },
+  adminList: (params: Record<string, string | number | boolean>) => {
+    const q = new URLSearchParams({ limit: "100" });
+    Object.entries(params).forEach(([key, value]) => {
+      q.set(key, String(value));
+    });
+    return `/trades?${q.toString()}`;
+  },
+  byId: (id: string) => `/trades/${id}`,
+  chooseBroker: (id: string) => `/trades/${id}/broker`,
+  cancel: (id: string) => `/trades/${id}/cancel`,
+  commission: (id: string) => `/trades/${id}/commission`,
+} as const;
+
+/** §22 / §22B — brokers used on the trade-accept screen. */
+export const BROKERS_ENDPOINTS = {
+  options: "/brokers/options",
+  myTrades: (params?: { status?: "confirmed" | "cancelled"; limit?: number }) => {
+    const q = new URLSearchParams({ limit: String(params?.limit ?? 100) });
+    if (params?.status) q.set("status", params.status);
+    return `/brokers/me/trades?${q.toString()}`;
+  },
+  myTradeById: (id: string) => `/brokers/me/trades/${id}`,
+  commissions: (brokerId: string) => `/brokers/${brokerId}/commissions`,
+} as const;
+
+/** §22E — admin notification outbox (read-only). */
+export const NOTIFICATIONS_ENDPOINTS = {
+  list: (params: Record<string, string | number | boolean>) => {
+    const q = new URLSearchParams({ limit: "100" });
+    Object.entries(params).forEach(([key, value]) => {
+      q.set(key, String(value));
+    });
+    return `/notifications?${q.toString()}`;
+  },
+  failed: "/notifications/failed",
+} as const;
+
 export function apiUrl(path: string): string {
   return `${ENV.apiUrl}${path}`;
 }

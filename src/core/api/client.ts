@@ -1,43 +1,78 @@
 export class ApiError extends Error {
   status: number;
+  /** Backend code from `{ error: { code, message } }`, when present. */
+  code?: string;
+  /** Structured extra data, e.g. partial-fill `{ available, price }`. */
+  details?: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    code?: string,
+    details?: unknown,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    if (code) this.code = code;
+    if (details !== undefined) this.details = details;
   }
 }
 
-/** Pull a human-readable message out of a non-OK response body. */
-function extractErrorMessage(raw: string, status: number): string {
-  if (!raw) return `Request failed (${status})`;
+interface ParsedApiError {
+  message: string;
+  code?: string;
+  details?: unknown;
+}
+
+/** Pull message, code and details out of a non-OK response body. */
+function parseErrorBody(raw: string, status: number): ParsedApiError {
+  const fallback = `Request failed (${status})`;
+  if (!raw) return { message: fallback };
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed === "string") return parsed || `Request failed (${status})`;
+    if (typeof parsed === "string") {
+      return { message: parsed || fallback };
+    }
     if (parsed && typeof parsed === "object") {
       const obj = parsed as Record<string, unknown>;
+      const errorObject =
+        obj["error"] !== null && typeof obj["error"] === "object"
+          ? (obj["error"] as Record<string, unknown>)
+          : null;
+      const code =
+        typeof errorObject?.["code"] === "string"
+          ? errorObject["code"]
+          : undefined;
+      const details = errorObject?.["details"] ?? obj["details"];
       for (const key of ["message", "error", "detail", "msg"]) {
         const v = obj[key];
-        if (typeof v === "string" && v.trim()) return v;
+        if (typeof v === "string" && v.trim()) return { message: v, code, details };
         // Server shape: { success: false, error: { code, message } }
         if (v !== null && typeof v === "object") {
           const nested = (v as Record<string, unknown>)["message"];
-          if (typeof nested === "string" && nested.trim()) return nested;
+          if (typeof nested === "string" && nested.trim()) {
+            return { message: nested, code, details };
+          }
         }
       }
       const errors = obj["errors"];
-      if (Array.isArray(errors) && typeof errors[0] === "string") return errors[0];
+      if (Array.isArray(errors) && typeof errors[0] === "string") {
+        return { message: errors[0], code, details };
+      }
       if (Array.isArray(errors) && errors[0] && typeof errors[0] === "object") {
         const first = (errors[0] as Record<string, unknown>)["message"];
-        if (typeof first === "string" && first.trim()) return first;
+        if (typeof first === "string" && first.trim()) {
+          return { message: first, code, details };
+        }
       }
     }
   } catch {
     // Not JSON — fall through. Strip HTML tags so server error pages stay readable.
     const text = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    if (text) return text.slice(0, 200);
+    if (text) return { message: text.slice(0, 200) };
   }
-  return `Request failed (${status})`;
+  return { message: fallback };
 }
 
 /** True when the server rejected the access token (expired/invalid). */
@@ -139,12 +174,12 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
     });
     if (!res.ok) {
       const raw = await res.text().catch(() => "");
-      const message = extractErrorMessage(raw, res.status);
+      const parsed = parseErrorBody(raw, res.status);
       if (__DEV__) {
         console.log(`[api] ${res.status} ${method} ${url}`);
       }
       logApiErrorResponse(res.status, method, url, raw);
-      throw new ApiError(res.status, message);
+      throw new ApiError(res.status, parsed.message, parsed.code, parsed.details);
     }
     const data = (await res.json()) as T;
     if (__DEV__) {
@@ -189,7 +224,8 @@ export async function apiUpload<T>(
         console.log(`[api] ${res.status} POST ${url}`);
       }
       logApiErrorResponse(res.status, "POST", url, raw);
-      throw new ApiError(res.status, extractErrorMessage(raw, res.status));
+      const parsed = parseErrorBody(raw, res.status);
+      throw new ApiError(res.status, parsed.message, parsed.code, parsed.details);
     }
     const data = (await res.json()) as T;
     if (__DEV__) {
@@ -220,7 +256,8 @@ export async function apiDownload(
     });
     if (!res.ok) {
       const raw = await res.text().catch(() => "");
-      throw new ApiError(res.status, extractErrorMessage(raw, res.status));
+      const parsed = parseErrorBody(raw, res.status);
+      throw new ApiError(res.status, parsed.message, parsed.code, parsed.details);
     }
     return await res.blob();
   } finally {

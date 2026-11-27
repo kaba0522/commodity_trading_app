@@ -17,6 +17,7 @@ interface CounterSheetProps {
   listedPrice: number;
   theirOffer: number;
   remaining: number;
+  max?: number;
   onClose: () => void;
   onSubmit: (price: number, note?: string, voice?: VoiceNote) => void;
 }
@@ -28,6 +29,7 @@ export function CounterSheet({
   listedPrice,
   theirOffer,
   remaining,
+  max = 2,
   onClose,
   onSubmit,
 }: CounterSheetProps) {
@@ -110,7 +112,7 @@ export function CounterSheet({
       <Text style={styles.remaining}>
         {remaining > 0
           ? `${remaining} counter offer${remaining === 1 ? "" : "s"} remaining`
-          : "Counter limit reached (2/2)"}
+          : `Counter limit reached (${max}/${max})`}
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
