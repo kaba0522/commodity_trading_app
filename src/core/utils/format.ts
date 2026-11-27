@@ -52,3 +52,10 @@ export function formatDateLabel(raw: string): string {
   if (Number.isNaN(d.getTime())) return raw;
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/** Completed-trade prototype style: "Nov 19, 2026". */
+export function formatTradeDateLabel(raw: string): string {
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}

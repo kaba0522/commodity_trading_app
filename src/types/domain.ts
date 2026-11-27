@@ -235,6 +235,8 @@ export interface NegotiationThread {
   counterCount: number;
   /** Short relative label used on the trades list ("2m ago"). */
   updatedAt: string;
+  /** Raw trade confirmation timestamp for the completed-trade summary. */
+  confirmedAt?: string;
   trade?: TradeDetails;
 
   /* ---- Backend negotiation fields (§22D) ---- */

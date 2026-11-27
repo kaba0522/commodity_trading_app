@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
 import { getFriendlyApiError } from "@/core/api/client";
-import { bagsLabel, priceLabel } from "@/core/utils/format";
+import { bagsLabel, formatTradeDateLabel, priceLabel } from "@/core/utils/format";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ChatComposer } from "@/features/negotiation/components/ChatComposer";
 import { CutoffSheet } from "@/features/negotiation/components/CutoffSheet";
@@ -134,8 +134,24 @@ export function NegotiationChatScreen({
   const counterMax = thread.counters?.max ?? 2;
   const finalPrice = thread.trade?.price ?? thread.agreedPrice ?? latestOfferPrice(thread);
   const finalBags = thread.trade?.bags ?? thread.requestedBags;
+  const finalDate = formatTradeDateLabel(
+    thread.confirmedAt ?? thread.trade?.date ?? thread.updatedAt,
+  );
   const offerToActOn = actionableOffer(thread);
   const conversationOpen = thread.status === "your_turn" || thread.status === "waiting";
+  const completionMessage = thread.messages.some(
+    (message) =>
+      message.kind === "system" &&
+      /trade[\s_-]*(completed|confirmed)/i.test(message.text ?? ""),
+  );
+  // Backend sometimes closes a finished negotiation with a generic declined
+  // status. Any real trade (plus its confirmation message) wins over that.
+  const hasCompletedTrade =
+    thread.status !== "cancelled" &&
+    thread.status !== "withdrawn" &&
+    (thread.status === "completed" ||
+      (thread.status !== "confirmed" &&
+        (Boolean(thread.trade) || Boolean(thread.confirmedAt) || completionMessage)));
 
   function offersAllowed(): boolean {
     if (isOfferWindowOpen(new Date(), simulateCutoff)) return true;
@@ -312,20 +328,20 @@ export function NegotiationChatScreen({
       </View>
 
       <View style={styles.contextBar}>
-        <View style={styles.contextItem}>
+        <Text style={styles.contextText} numberOfLines={1}>
           <Text style={styles.contextLabel}>
-            {role === "buyer" ? "Listed" : "Target"}
+            {role === "buyer" ? "Listed" : "Target"}:{" "}
           </Text>
           <Text style={styles.contextValue}>{priceLabel(thread.listedPrice)}</Text>
-        </View>
-        <View style={styles.contextItem}>
-          <Text style={styles.contextLabel}>Avail</Text>
+        </Text>
+        <Text style={styles.contextText} numberOfLines={1}>
+          <Text style={styles.contextLabel}>Avail: </Text>
           <Text style={styles.contextValue}>{bagsLabel(thread.availableBags)}</Text>
-        </View>
-        <View style={styles.contextItem}>
-          <Text style={styles.contextLabel}>Your ask</Text>
+        </Text>
+        <Text style={styles.contextText} numberOfLines={1}>
+          <Text style={styles.contextLabel}>Your ask: </Text>
           <Text style={styles.contextValue}>{bagsLabel(thread.requestedBags)}</Text>
-        </View>
+        </Text>
       </View>
 
       {formError ? <FormStatus kind="error" message={formError} /> : null}
@@ -408,13 +424,13 @@ export function NegotiationChatScreen({
           </View>
         ) : null}
 
-        {thread.status === "completed" ? (
-          <View style={styles.successBox}>
-            <Text style={styles.successTitle}>
+        {hasCompletedTrade ? (
+          <View style={styles.completedBox}>
+            <Text style={styles.completedTitle}>
               Trade completed at {priceLabel(finalPrice)}
             </Text>
-            <Text style={styles.successSubtitle}>
-              {bagsLabel(finalBags)} · {thread.trade?.date ?? thread.updatedAt}
+            <Text style={styles.completedSubtitle}>
+              {bagsLabel(finalBags)} · {finalDate}
             </Text>
           </View>
         ) : null}
@@ -434,7 +450,8 @@ export function NegotiationChatScreen({
           </View>
         ) : null}
 
-        {thread.status === "declined" || thread.status === "cancelled" ? (
+        {!hasCompletedTrade &&
+        (thread.status === "declined" || thread.status === "cancelled") ? (
           <View style={styles.actionStack}>
             <View style={styles.dangerBox}>
               <Text style={styles.dangerTitle}>
@@ -625,21 +642,23 @@ const styles = StyleSheet.create({
   contextBar: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  contextItem: {
-    gap: 1,
+  contextText: {
+    fontSize: 12,
+    color: colors.muted,
   },
   contextLabel: {
-    fontSize: 10.5,
     color: colors.muted,
   },
   contextValue: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: "700",
     color: colors.text,
   },
@@ -724,6 +743,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.successBg,
     alignItems: "center",
+  },
+  /** Prototype completed-trade summary — compact centered success panel. */
+  completedBox: {
+    padding: spacing.compact,
+    borderRadius: 12,
+    backgroundColor: colors.success100,
+    alignItems: "center",
+  },
+  completedTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.success800,
+  },
+  completedSubtitle: {
+    fontSize: 12,
+    color: colors.success700,
+    marginTop: 2,
   },
   successTitle: {
     fontSize: 14,

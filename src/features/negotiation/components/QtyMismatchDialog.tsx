@@ -27,7 +27,7 @@ export function QtyMismatchDialog({
     <Dialog visible={visible} title="Partial Availability" onClose={onCancel}>
       <View style={styles.center}>
         <View style={styles.icon}>
-          <Text style={styles.iconText}>!</Text>
+          <Text style={styles.iconText}>⚠</Text>
         </View>
         <Text style={styles.message}>
           You requested {bagsLabel(requestedBags)} but only{" "}
@@ -58,17 +58,17 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   icon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.warningTint,
     alignItems: "center",
     justifyContent: "center",
   },
   iconText: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: colors.warning,
+    fontSize: 30,
+    fontWeight: "700",
+    color: colors.warningText,
   },
   message: {
     fontSize: 14,

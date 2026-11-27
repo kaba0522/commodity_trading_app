@@ -73,6 +73,8 @@ export function OfferSheet({
   }
 
   const priceLabelText = role === "buyer" ? "Your offer price" : "Your selling price";
+  const voiceNoteLabel =
+    role === "buyer" ? "Send voice note to seller" : "Send voice note to buyer";
 
   return (
     <Sheet visible={visible} title="Make an offer" onClose={onClose}>
@@ -125,7 +127,9 @@ export function OfferSheet({
           style={styles.noteInput}
           value={note}
           onChangeText={setNote}
-          placeholder={role === "buyer" ? "Add a note to the seller…" : "Add a note to the buyer…"}
+          placeholder={
+            role === "buyer" ? "Add a note to the seller..." : "Add a note to the buyer..."
+          }
           placeholderTextColor={colors.muted}
           multiline
           accessibilityLabel="Optional message"
@@ -133,6 +137,7 @@ export function OfferSheet({
       </View>
 
       <VoiceNoteButton
+        label={voiceNoteLabel}
         recording={recording}
         durationMs={durationMs}
         draft={voiceNote}

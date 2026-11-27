@@ -49,6 +49,8 @@ export function CounterSheet({
   } = useVoiceRecorder();
 
   const priceIssue = validateOfferPrice(price, listedPrice, role);
+  const voiceNoteLabel =
+    role === "buyer" ? "Send voice note to seller" : "Send voice note to buyer";
 
   function submit() {
     if (priceIssue) {
@@ -92,7 +94,7 @@ export function CounterSheet({
           style={styles.noteInput}
           value={note}
           onChangeText={setNote}
-          placeholder="Add a note…"
+          placeholder="Add a note..."
           placeholderTextColor={colors.muted}
           multiline
           accessibilityLabel="Optional message"
@@ -100,6 +102,7 @@ export function CounterSheet({
       </View>
 
       <VoiceNoteButton
+        label={voiceNoteLabel}
         recording={recording}
         durationMs={durationMs}
         draft={voiceNote}

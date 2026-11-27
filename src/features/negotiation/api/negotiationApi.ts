@@ -1,6 +1,11 @@
 import { ApiError, apiFetch } from "@/core/api/client";
 import { NEGOTIATION_ENDPOINTS, apiUrl } from "@/core/api/endpoints";
-import { formatDateLabel } from "@/core/utils/format";
+import {
+  bagsLabel,
+  formatDateLabel,
+  formatTradeDateLabel,
+  priceLabel,
+} from "@/core/utils/format";
 import type {
   NegotiationMessage,
   NegotiationStatus,
@@ -163,12 +168,28 @@ function chatMessage(raw: Obj, currentUserId?: string): NegotiationMessage | nul
       onBehalf: raw["onBehalf"] === true,
     };
   }
-  if (type === "system" || type === "event" || type === "status") {
+  const systemTypes = new Set([
+    "system",
+    "event",
+    "status",
+    "trade_confirmed",
+    "trade_completed",
+    "offer_declined",
+    "offer_retracted",
+    "negotiation_withdrawn",
+    "negotiation_expired",
+    "partial_fill_proposed",
+    "quantity_mismatch",
+    "offer_price_lowered",
+    "acted_on_your_behalf",
+    "trade_cancelled",
+  ]);
+  if (systemTypes.has(type) || type.includes("system") || type.includes("event")) {
     return {
       id,
       kind: "system",
       author: "system",
-      text: content || type.replace(/_/g, " ").toLowerCase(),
+      text: content || type.replace(/[_-]+/g, " ").toLowerCase(),
       time: "",
     };
   }
@@ -196,6 +217,19 @@ function threadStatus(raw: Obj, hasTrade: boolean): NegotiationStatus {
   const uiStatus = text(raw, "uiStatus").toUpperCase();
 
   if (reason === "WITHDRAWN" || state === "withdrawn") return "withdrawn";
+  // An accepted offer is a completed trade, even if the backend closes the
+  // negotiation with a generic ACCEPTED/CANCELLED status afterwards.
+  if (
+    reason === "TRADE_COMPLETED" ||
+    state === "accepted" ||
+    state === "trade_confirmed" ||
+    uiStatus === "COMPLETED"
+  ) {
+    return raw["brokerPending"] === true ||
+      raw["buyerCanChooseBroker"] === true
+      ? "confirmed"
+      : "completed";
+  }
   if (
     reason === "QUANTITY_MISMATCH" ||
     state === "cancelled" ||
@@ -209,7 +243,6 @@ function threadStatus(raw: Obj, hasTrade: boolean): NegotiationStatus {
       ? "confirmed"
       : "completed";
   }
-  if (state === "trade_confirmed") return "completed";
   if (state === "open") {
     if (uiStatus === "RESPOND") return "your_turn";
     if (uiStatus === "WAITING") return "waiting";
@@ -289,10 +322,37 @@ export function normalizeThread(
     : undefined;
   const counterUsed = counters?.[role].used ?? 0;
   const confirmedAt = text(trade, "confirmedAt", "createdAt");
-  const tradePrice = number(trade, "finalPrice");
-  const tradeBags = number(trade, "quantityBags");
+  const tradePrice = number(trade, "finalPrice", "price");
+  const tradeBags = number(trade, "quantityBags", "bags");
   const brokerPending =
     trade["brokerPending"] === true || trade["buyerCanChooseBroker"] === true;
+  const backendStatus = threadStatus({ ...record, brokerPending }, hasTrade);
+  const hasCompletionNotice = messages.some(
+    (message) =>
+      message.kind === "system" &&
+      /trade[\s_-]*(completed|confirmed)/i.test(message.text ?? ""),
+  );
+  // A backend `closed`/`declined` state after acceptance is still a completed
+  // trade when the thread carries a TRADE_CONFIRMED event.
+  const status =
+    backendStatus === "declined" &&
+    hasCompletionNotice &&
+    closeReason !== "WITHDRAWN" &&
+    closeReason !== "QUANTITY_MISMATCH"
+      ? "completed"
+      : backendStatus;
+  // Prototype completion notice in the thread, above the compact success box.
+  if (
+    (status === "completed" || status === "confirmed") &&
+    tradePrice !== null &&
+    !hasCompletionNotice
+  ) {
+    messages.push(
+      systemMessage(
+        `Trade completed · ${priceLabel(tradePrice)} × ${bagsLabel(tradeBags ?? requestedBags)}`,
+      ),
+    );
+  }
   const quality =
     text(record, "quality", "sellerQuality", "qualityName", "grade") ||
     text(listing, "quality", "sellerQuality", "qualityName", "grade") ||
@@ -335,10 +395,11 @@ export function normalizeThread(
     weightKg: number(listing, "weightKg") ?? undefined,
     paymentTerms:
       text(listing, "paymentTerms") || String(number(listing, "paymentTerms") ?? ""),
-    status: threadStatus({ ...record, brokerPending }, hasTrade),
+    status,
     messages,
     counterCount: counterUsed,
     updatedAt: confirmedAt ? formatDateLabel(confirmedAt) : "Just now",
+    confirmedAt: confirmedAt || undefined,
     agreedPrice: tradePrice ?? undefined,
     trade:
       hasTrade && tradePrice !== null
@@ -349,7 +410,7 @@ export function normalizeThread(
               trade["isSelf"] === true
                 ? "Self"
                 : text(obj(trade["broker"]), "name") || "Broker",
-            date: confirmedAt ? formatDateLabel(confirmedAt) : "",
+            date: confirmedAt ? formatTradeDateLabel(confirmedAt) : "",
           }
         : undefined,
     counters,

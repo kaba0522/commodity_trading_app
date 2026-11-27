@@ -56,13 +56,8 @@ export function ChatComposer({ disabled, onSendText, onSendVoice }: ChatComposer
     }
   }
 
-  if (disabled) {
-    return (
-      <View style={styles.closed}>
-        <Text style={styles.closedText}>This conversation is closed.</Text>
-      </View>
-    );
-  }
+  // Closed negotiations have a terminal action bar; no composer or closed note.
+  if (disabled) return null;
 
   return (
     <View style={styles.wrapper}>
@@ -143,14 +138,6 @@ export function ChatComposer({ disabled, onSendText, onSendVoice }: ChatComposer
 const styles = StyleSheet.create({
   wrapper: {
     gap: spacing.xs,
-  },
-  closed: {
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-  },
-  closedText: {
-    fontSize: 12,
-    color: colors.muted,
   },
   inputRow: {
     flexDirection: "row",

@@ -3,7 +3,8 @@ import { useRef, useState } from "react";
 import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 interface DropdownProps {
-  label: string;
+  /** Optional because some selects (for example the prototype broker select) are unlabeled. */
+  label?: string;
   placeholder?: string;
   value: string;
   options: readonly string[];
@@ -65,12 +66,13 @@ export function Dropdown({ label, placeholder = "Select", value, options, onChan
 
   return (
     <View>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <View ref={anchorRef} collapsable={false}>
         <Pressable
           style={[styles.box, open ? styles.boxOpen : null, error ? styles.boxError : null]}
           onPress={() => (open ? close() : openMenu())}
           accessibilityRole="button"
+          accessibilityLabel={label ?? placeholder ?? "Select"}
           accessibilityState={{ expanded: open }}
         >
           <Text style={[styles.boxText, value ? null : styles.placeholder]} numberOfLines={1}>

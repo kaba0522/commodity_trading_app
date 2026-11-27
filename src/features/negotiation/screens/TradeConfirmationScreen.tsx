@@ -1,11 +1,10 @@
 import { AppTabBar, BUYER_BAR, SELLER_BAR } from "@/components/common/AppTabBar";
-import { BackButton } from "@/components/common/BackButton";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
 import { getFriendlyApiError } from "@/core/api/client";
-import { bagsLabel, formatDateLabel, priceLabel } from "@/core/utils/format";
+import { bagsLabel, priceLabel } from "@/core/utils/format";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Sheet } from "@/features/negotiation/components/Sheet";
 import { useBrokerOptions } from "@/features/negotiation/hooks/useBrokerOptions";
@@ -30,7 +29,8 @@ interface TradeConfirmationScreenProps {
   tradeId?: string;
 }
 
-const SELF_BROKER = "Self / no broker";
+/** Prototype label for the "no broker involved" option. */
+const NO_BROKER = "No broker";
 
 /** Trade Confirmed (FE doc §6) — the buyer picks the broker once. */
 export function TradeConfirmationScreen({
@@ -75,7 +75,7 @@ export function TradeConfirmationScreen({
     else if (target === "profile") router.replace("/profile");
   }
 
-  const brokerLabels = [SELF_BROKER, ...options.map((option) => option.name)];
+  const brokerLabels = [NO_BROKER, ...options.map((option) => option.name)];
   const needsBroker =
     role === "buyer" &&
     Boolean(trade?.buyerCanChooseBroker || trade?.brokerPending);
@@ -85,7 +85,7 @@ export function TradeConfirmationScreen({
     setFormError(null);
     if (needsBroker && !trade.brokerId) {
       if (!brokerLabel) {
-        setFormError("Select a broker or choose self before continuing.");
+        setFormError(`Please select a broker or ${NO_BROKER}.`);
         return;
       }
       setBusy(true);
@@ -114,10 +114,6 @@ export function TradeConfirmationScreen({
     });
   }
 
-  const backTarget = id
-    ? { pathname: "/negotiation/[id]" as const, params: { id } }
-    : (role === "seller" ? "/orders" : "/trades");
-
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -125,8 +121,6 @@ export function TradeConfirmationScreen({
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <BackButton accessibilityLabel="Back to negotiation" fallback={backTarget} />
-
         {isLoading && !trade ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -159,14 +153,13 @@ export function TradeConfirmationScreen({
             {formError ? <FormStatus kind="error" message={formError} /> : null}
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Broker</Text>
+              <Text style={styles.cardTitle}>Select Broker</Text>
               {needsBroker && !trade.brokerId ? (
                 <>
-                  <Text style={styles.cardHint}>Select the broker involved in the deal</Text>
+                  <Text style={styles.cardHint}>Select Broker involved in the deal</Text>
                   <Dropdown
-                    label="Broker"
                     placeholder={
-                      brokersLoading ? "Loading brokers…" : "Select a broker"
+                      brokersLoading ? "Loading brokers…" : "Select broker"
                     }
                     value={brokerLabel}
                     options={brokerLabels}
@@ -175,20 +168,25 @@ export function TradeConfirmationScreen({
                 </>
               ) : (
                 <Text style={styles.brokerValue}>
-                  {trade.brokerName ?? (needsBroker ? "Pending selection" : "No broker")}
+                  {trade.brokerName ?? NO_BROKER}
                 </Text>
               )}
             </View>
 
-            <Button title="Done" onPress={() => void finish()} disabled={busy} />
+            <Button title="Done" loading={busy} onPress={() => void finish()} />
           </>
         )}
       </ScrollView>
 
-      <Sheet visible={doneOpen} title="Trade confirmed" onClose={closeDone}>
+      <Sheet
+        visible={doneOpen}
+        title="Trade confirmed"
+        showHeader={false}
+        onClose={closeDone}
+      >
         <View style={styles.doneCenter}>
           <View style={styles.doneIcon}>
-            <Text style={styles.check}>✓</Text>
+            <Text style={styles.doneCheck}>✓</Text>
           </View>
           <Text style={styles.doneText}>
             Your Trade confirmation details can be seen in Completed Trades
@@ -210,7 +208,6 @@ function TradeCard({
   trade: TradeRecord;
   role: NegotiationRole;
 }) {
-  const date = trade.confirmedAt ?? trade.createdAt;
   return (
     <View style={styles.card}>
       <DetailRow label="Item" value={trade.item} />
@@ -220,7 +217,6 @@ function TradeCard({
       />
       <DetailRow label="Price" value={priceLabel(trade.price)} strong />
       <DetailRow label="Quantity" value={bagsLabel(trade.bags)} />
-      {date ? <DetailRow label="Date" value={formatDateLabel(date)} /> : null}
     </View>
   );
 }
@@ -255,7 +251,7 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.background,
@@ -274,7 +270,7 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: "center",
     gap: spacing.xs,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   successIcon: {
     width: 64,
@@ -296,7 +292,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   heroSubtitle: {
-    fontSize: 13.5,
+    fontSize: 14,
     color: colors.muted,
   },
   card: {
@@ -353,10 +349,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  doneCheck: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: colors.success,
+  },
   doneText: {
     fontSize: 14,
     lineHeight: 21,
-    color: colors.text,
+    color: colors.muted,
     textAlign: "center",
   },
 });

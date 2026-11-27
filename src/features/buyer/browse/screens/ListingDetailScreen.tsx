@@ -241,13 +241,10 @@ export function ListingDetailScreen({
               </View>
             </View>
             <Text style={styles.title}>{itemLabel(listing)}</Text>
-            <Text style={styles.muted}>
-              {listing.weight} per bag · sold by {listing.seller}
-            </Text>
           </View>
 
           <View style={styles.priceCard}>
-            <Text style={styles.kicker}>Price per bag</Text>
+            <Text style={styles.kicker}>Price</Text>
             <Text style={styles.price}>{priceLabel(listing.price)}</Text>
             <View style={styles.validTag}>
               <Text style={styles.validTagText}>
@@ -290,7 +287,7 @@ export function ListingDetailScreen({
             accessibilityLabel={`View listings from ${listing.seller}`}
           >
             <View>
-              <Text style={styles.sellerName}>{listing.seller}</Text>
+              <Text style={styles.sellerName}>Sold by {listing.seller}</Text>
               <Text style={styles.muted}>
                 {stringParam(params.sellerListingCount)
                   ? `${stringParam(params.sellerListingCount)} listing${
@@ -303,6 +300,7 @@ export function ListingDetailScreen({
           </Pressable>
 
           <View style={styles.card}>
+            <Text style={styles.cardHeading}>Listing details</Text>
             <DetailRow
               label="Quantity"
               value={
@@ -482,6 +480,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.6,
     textTransform: "uppercase",
+    color: colors.muted,
+  },
+  cardHeading: {
+    fontSize: 12,
+    fontWeight: "600",
     color: colors.muted,
   },
   price: {

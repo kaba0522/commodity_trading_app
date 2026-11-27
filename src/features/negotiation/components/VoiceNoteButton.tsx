@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { VoiceNotePlayer } from "./VoiceNotePlayer";
 
 interface VoiceNoteButtonProps {
+  label?: string;
   recording: boolean;
   durationMs: number;
   draft: VoiceNote | null;
@@ -17,6 +18,7 @@ interface VoiceNoteButtonProps {
 
 /** Dashed voice-note field with record, stop, preview and remove states. */
 export function VoiceNoteButton({
+  label = "Record voice note",
   recording,
   durationMs,
   draft,
@@ -61,12 +63,12 @@ export function VoiceNoteButton({
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           onPress={onStart}
           accessibilityRole="button"
-          accessibilityLabel="Record voice note"
+          accessibilityLabel={label}
         >
           <View style={styles.icon}>
             <Text style={styles.iconText}>♪</Text>
           </View>
-          <Text style={styles.text}>Record voice note</Text>
+          <Text style={styles.text}>{label}</Text>
         </Pressable>
       )}
 

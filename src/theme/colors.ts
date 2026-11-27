@@ -16,8 +16,14 @@ export const colors = {
   dangerBg: "#FDECEC",
   success: "#2E7D32",
   successBg: "#E9F5E9",
+  /** Prototype success palette for the completed-trade footer. */
+  success100: "#DFF3E6",
+  success700: "#157347",
+  success800: "#146C43",
   warning: "#F5AF02",
   warningTint: "#FFF8E1",
+  /** Prototype `--color-warning-800`, used for the warning-triangle outline. */
+  warningText: "#92400E",
   /** Counterparty offer cards in the negotiation thread. */
   counterparty: "#B45309",
   counterpartyTint: "#FFF4E6",

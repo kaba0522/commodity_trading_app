@@ -7,11 +7,19 @@ interface SheetProps {
   visible: boolean;
   title: string;
   onClose: () => void;
+  /** Prototype confirmation sheets have no title/close header. */
+  showHeader?: boolean;
   children: ReactNode;
 }
 
 /** Bottom sheet used by make-offer, counter, quantity and cutoff dialogs. */
-export function Sheet({ visible, title, onClose, children }: SheetProps) {
+export function Sheet({
+  visible,
+  title,
+  onClose,
+  showHeader = true,
+  children,
+}: SheetProps) {
   return (
     <Modal
       visible={visible}
@@ -29,18 +37,20 @@ export function Sheet({ visible, title, onClose, children }: SheetProps) {
         />
         <View style={styles.card}>
           <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            <Pressable
-              onPress={onClose}
-              style={styles.closeButton}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={8}
-            >
-              <Text style={styles.closeIcon}>✕</Text>
-            </Pressable>
-          </View>
+          {showHeader ? (
+            <View style={styles.header}>
+              <Text style={styles.title}>{title}</Text>
+              <Pressable
+                onPress={onClose}
+                style={styles.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={8}
+              >
+                <Text style={styles.closeIcon}>✕</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.body}
