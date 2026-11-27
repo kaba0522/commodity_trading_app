@@ -1,7 +1,8 @@
 import { resolveBackendRole } from "@/core/auth/roleStore";
 import { getFriendlyApiError } from "@/core/api/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { negotiationApi } from "../api/negotiationApi";
 import type { NegotiationThread } from "@/types/domain";
 
@@ -18,31 +19,46 @@ export function useNegotiations(tab: NegotiationTab, roleOverride?: "buyer" | "s
   const backendRole = resolveBackendRole(session?.user);
   const role = roleOverride ?? (backendRole === "seller" ? "seller" : "buyer");
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const rows = await runWithAuth((token) =>
-        negotiationApi.list(tab, token, currentUserId, role),
-      );
-      setThreads(rows.filter((thread) => !roleOverride || thread.role === roleOverride));
-    } catch (e) {
-      setError(getFriendlyApiError(e, "Could not load negotiations"));
-      setThreads([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [runWithAuth, currentUserId, role, roleOverride, tab]);
+  /**
+   * An active flag prevents an in-flight request from overwriting the list
+   * after the Trades tab loses focus and a newer fetch has already started.
+   */
+  const load = useCallback(
+    async (isActive: () => boolean = () => true) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const rows = await runWithAuth((token) =>
+          negotiationApi.list(tab, token, currentUserId, role),
+        );
+        if (isActive()) {
+          setThreads(
+            rows.filter((thread) => !roleOverride || thread.role === roleOverride),
+          );
+        }
+      } catch (e) {
+        if (isActive()) {
+          setError(getFriendlyApiError(e, "Could not load negotiations"));
+          setThreads([]);
+        }
+      } finally {
+        if (isActive()) setIsLoading(false);
+      }
+    },
+    [runWithAuth, currentUserId, role, roleOverride, tab],
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!cancelled) await load();
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [load]);
+  // Every Trades tab visit (including the first mount and tab switches)
+  // refreshes from the server instead of showing cached list state.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void load(() => active);
+      return () => {
+        active = false;
+      };
+    }, [load]),
+  );
 
-  return { threads, isLoading, error, retry: load };
+  return { threads, isLoading, error, retry: () => load() };
 }

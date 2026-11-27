@@ -13,6 +13,10 @@ export const colors = {
   danger: "#E53238",
   /** Prototype `--color-danger-700`, used for inline destructive text buttons. */
   dangerText: "#B02A37",
+  /** Prototype declined-footer palette. */
+  danger100: "#F8D7DA",
+  danger800: "#842029",
+  dividerOverlay: "rgba(32, 30, 29, 0.16)",
   dangerBg: "#FDECEC",
   success: "#2E7D32",
   successBg: "#E9F5E9",
@@ -27,6 +31,9 @@ export const colors = {
   /** Counterparty offer cards in the negotiation thread. */
   counterparty: "#B45309",
   counterpartyTint: "#FFF4E6",
+  /** Prototype declined-offer card: orange accent + deep-red price. */
+  declinedAccent: "#E65100",
+  declinedPrice: "#BF360C",
   /** Second accent (live/expiry tag background + text). */
   accent2Tint: "#E9F5E9",
   accent2Dark: "#2E7D32",

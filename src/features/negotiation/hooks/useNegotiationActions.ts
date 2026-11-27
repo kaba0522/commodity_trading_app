@@ -59,11 +59,17 @@ export function useNegotiationActions() {
   const sendMessage = useCallback(
     async (threadId: string, input: ChatActionInput): Promise<NegotiationThread> =>
       runWithAuth(async (token) => {
-        const voiceUrl = input.voice ? await uploadVoiceNote(input.voice, token) : undefined;
+        const voice = input.voice;
+        const voiceUrl = voice ? await uploadVoiceNote(voice, token) : undefined;
         if (voiceUrl) {
           return negotiationApi.sendMessage(
             threadId,
-            { type: "voice_note", content: voiceUrl },
+            {
+              type: "voice_note",
+              content: voiceUrl,
+              voiceNoteUrl: voiceUrl,
+              durationMs: voice?.durationMs,
+            },
             token,
             currentUserId,
           );

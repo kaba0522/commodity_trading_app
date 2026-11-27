@@ -1,4 +1,5 @@
 import { BackButton } from "@/components/common/BackButton";
+import { ConfirmSheet } from "@/components/common/ConfirmSheet";
 import { Button } from "@/components/ui/Button";
 import { FormStatus } from "@/components/ui/FormStatus";
 import { resolveBackendRole } from "@/core/auth/roleStore";
@@ -8,23 +9,18 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ChatComposer } from "@/features/negotiation/components/ChatComposer";
 import { CutoffSheet } from "@/features/negotiation/components/CutoffSheet";
 import { CounterSheet } from "@/features/negotiation/components/CounterSheet";
-import {
-  OfferSheet,
-  type OfferDraft,
-} from "@/features/negotiation/components/OfferSheet";
 import { QtyMismatchDialog } from "@/features/negotiation/components/QtyMismatchDialog";
 import { Toast } from "@/features/negotiation/components/Toast";
 import { ThreadMessage } from "@/features/negotiation/components/ThreadMessage";
 import { useNegotiationActions } from "@/features/negotiation/hooks/useNegotiationActions";
 import { useNegotiationThread } from "@/features/negotiation/hooks/useNegotiationThread";
-import { useStartNegotiation } from "@/features/negotiation/hooks/useStartNegotiation";
 import { useToast } from "@/features/negotiation/hooks/useToast";
 import {
-  countersRemaining,
   getPartialFillInfo,
   isOfferWindowOpen,
   latestCounterPrice,
   latestOfferPrice,
+  threadState,
   type NegotiationRole,
   type PartialFillInfo,
 } from "@/features/negotiation/utils";
@@ -39,22 +35,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 interface NegotiationChatScreenProps {
   id?: string;
   simulateCutoff?: boolean;
-}
-
-/** Pending counterparty offer that can be accepted or declined. */
-function actionableOffer(thread: NegotiationThread): NegotiationMessage | null {
-  for (let i = thread.messages.length - 1; i >= 0; i -= 1) {
-    const message = thread.messages[i];
-    if (
-      message.kind === "offer" &&
-      message.author === "them" &&
-      message.offerId &&
-      !message.status
-    ) {
-      return message;
-    }
-  }
-  return null;
 }
 
 /** Prototype chat header: "Rajma · Disco · Bold" without duplicated parts. */
@@ -84,13 +64,12 @@ export function NegotiationChatScreen({
     retry,
   } = useNegotiationThread(id);
   const actions = useNegotiationActions();
-  const { start } = useStartNegotiation();
   const { session } = useAuth();
   const [toast, setToast] = useToast();
   const [counterOpen, setCounterOpen] = useState(false);
-  const [offerOpen, setOfferOpen] = useState(false);
   const [qtyOpen, setQtyOpen] = useState(false);
   const [cutoffOpen, setCutoffOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [partial, setPartial] = useState<PartialFillInfo | null>(null);
@@ -129,29 +108,52 @@ export function NegotiationChatScreen({
   }
 
   const thread = threadOrNull;
-  const theirPrice = latestCounterPrice(thread) ?? latestOfferPrice(thread);
-  const remaining = countersRemaining(thread);
+  const state = threadState(thread);
+  const {
+    phase,
+    canChat: conversationOpen,
+    canCounter,
+    countersLeft,
+    completedTrade,
+    declinedNotice,
+  } = state;
+  const offerToActOn =
+    phase === "respond" && thread.pendingOffer?.author === "them"
+      ? thread.pendingOffer
+      : null;
+  const theirPrice =
+    offerToActOn?.price ?? latestCounterPrice(thread) ?? latestOfferPrice(thread);
+  const remaining = countersLeft;
   const counterMax = thread.counters?.max ?? 2;
   const finalPrice = thread.trade?.price ?? thread.agreedPrice ?? latestOfferPrice(thread);
   const finalBags = thread.trade?.bags ?? thread.requestedBags;
   const finalDate = formatTradeDateLabel(
     thread.confirmedAt ?? thread.trade?.date ?? thread.updatedAt,
   );
-  const offerToActOn = actionableOffer(thread);
-  const conversationOpen = thread.status === "your_turn" || thread.status === "waiting";
-  const completionMessage = thread.messages.some(
-    (message) =>
-      message.kind === "system" &&
-      /trade[\s_-]*(completed|confirmed)/i.test(message.text ?? ""),
-  );
-  // Backend sometimes closes a finished negotiation with a generic declined
-  // status. Any real trade (plus its confirmation message) wins over that.
-  const hasCompletedTrade =
-    thread.status !== "cancelled" &&
-    thread.status !== "withdrawn" &&
-    (thread.status === "completed" ||
-      (thread.status !== "confirmed" &&
-        (Boolean(thread.trade) || Boolean(thread.confirmedAt) || completionMessage)));
+  // A confirmed trade still has its own "choose broker" screen; the compact
+  // completed box is only for finished trades.
+  const hasCompletedTrade = completedTrade && phase !== "confirmed";
+
+  const lastOfferMessage = [...thread.messages]
+    .reverse()
+    .find((message) => message.kind === "offer");
+  // Both roles must see the same footer text. Work out who declined from the
+  // rejected offer's author, then render the same label on either side.
+  const declinerRole =
+    lastOfferMessage?.author === "you"
+      ? role === "buyer"
+        ? "seller"
+        : "buyer"
+      : role;
+  const declinedTitle = `Offer declined by ${declinerRole}`;
+  // §22D: a decline returns the turn to the OFFERER and spends no counter.
+  // The decliner has no offer action; a fresh negotiation must be started from
+  // the listing / requirement, not from an already-open thread.
+  const showClosedFooter = phase === "cancelled" || phase === "closed";
+  const canRespond = phase === "respond" && !showClosedFooter;
+  const canCounterNow = canCounter && !showClosedFooter;
+  const showDeclinedNotice = declinedNotice && !showClosedFooter;
+  const waitingForReply = phase === "waiting" && !showClosedFooter;
 
   function offersAllowed(): boolean {
     if (isOfferWindowOpen(new Date(), simulateCutoff)) return true;
@@ -159,13 +161,19 @@ export function NegotiationChatScreen({
     return false;
   }
 
+  function openCounterSheet() {
+    setFormError(null);
+    if (offersAllowed()) setCounterOpen(true);
+  }
+
   function showError(
     e: unknown,
     fallbackMessage: string,
     attemptedBags = thread.requestedBags,
+    allowPartial = false,
   ): boolean {
     const info = getPartialFillInfo(e);
-    if (info) {
+    if (info && allowPartial) {
       setPartial({ ...info, requested: info.requested ?? attemptedBags });
       setFormError(null);
       setQtyOpen(true);
@@ -176,11 +184,11 @@ export function NegotiationChatScreen({
   }
 
   async function sendCounter(price: number, note?: string, voice?: VoiceNote) {
-    setCounterOpen(false);
     setBusy(true);
     setFormError(null);
     try {
       setThread(await actions.counter(thread.id, { price, note, voice }));
+      setCounterOpen(false);
       setToast("Counter sent!");
     } catch (e) {
       showError(e, "Could not send your counter");
@@ -189,39 +197,15 @@ export function NegotiationChatScreen({
     }
   }
 
-  async function sendOffer(draft: OfferDraft) {
-    if (!thread.listingId) {
-      setFormError("This negotiation is missing its listing id.");
-      return;
-    }
-    setOfferOpen(false);
-    setBusy(true);
-    setFormError(null);
-    try {
-      const next = await start({
-        listingId: thread.listingId,
-        price: draft.price,
-        bagsRequested: draft.bags,
-        note: draft.note,
-        voice: draft.voiceNote,
-      });
-      router.push({ pathname: "/negotiation/[id]", params: { id: next.id } });
-    } catch (e) {
-      showError(e, "Could not start a new offer", draft.bags);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function acceptOffer(bags: number, acceptPartial = false) {
-    if (!offerToActOn?.offerId) {
+    if (!offerToActOn?.id) {
       setFormError("The pending offer is missing its id. Refresh and try again.");
       return;
     }
     setBusy(true);
     setFormError(null);
     try {
-      const result = await actions.accept(offerToActOn.offerId, acceptPartial);
+      const result = await actions.accept(offerToActOn.id, acceptPartial);
       setThread(result.thread);
       setToast(
         result.status === "partial_fill_proposed"
@@ -238,41 +222,33 @@ export function NegotiationChatScreen({
         });
       }
     } catch (e) {
-      showError(e, "Could not accept the offer", bags);
+      showError(e, "Could not accept the offer", bags, true);
     } finally {
       setBusy(false);
     }
   }
 
   function handleAccept() {
-    const serverAvailable = partial?.available;
-    const localAvailable =
-      thread.availableBags > 0 && thread.requestedBags > thread.availableBags
-        ? thread.availableBags
-        : null;
-    const available = serverAvailable ?? localAvailable;
-    if (available) {
-      setPartial({
-        available,
-        requested: partial?.requested ?? thread.requestedBags,
-        price: partial?.price ?? theirPrice,
-      });
-      setFormError(null);
-      setQtyOpen(true);
+    // §22D decides the shortfall on the server. A local availability guess can
+    // belong to a different buyer's trade; only PARTIAL_FILL_REQUIRED should
+    // open the "Partial Availability" dialog before retrying with acceptPartial.
+    if (!offerToActOn) {
+      setFormError("There is no pending offer to accept. Refresh and try again.");
       return;
     }
-    void acceptOffer(bagsSafe(thread.requestedBags));
+    setPartial(null);
+    void acceptOffer(bagsSafe(offerToActOn.bags || thread.requestedBags));
   }
 
   async function decline() {
-    if (!offerToActOn?.offerId) {
+    if (!offerToActOn?.id) {
       setFormError("The pending offer is missing its id. Refresh and try again.");
       return;
     }
     setBusy(true);
     setFormError(null);
     try {
-      setThread(await actions.decline(offerToActOn.offerId));
+      setThread(await actions.decline(offerToActOn.id));
       setToast("Offer declined");
     } catch (e) {
       showError(e, "Could not decline the offer");
@@ -287,6 +263,7 @@ export function NegotiationChatScreen({
     try {
       setThread(await actions.withdraw(thread.id));
       setToast("Offer withdrawn");
+      setWithdrawOpen(false);
       router.replace(fallback);
     } catch (e) {
       showError(e, "Could not withdraw the offer");
@@ -323,7 +300,7 @@ export function NegotiationChatScreen({
           </Text>
         </View>
         {conversationOpen ? (
-          <PressableWithdraw busy={busy} onPress={() => void withdraw()} />
+          <PressableWithdraw busy={busy} onPress={() => setWithdrawOpen(true)} />
         ) : null}
       </View>
 
@@ -354,31 +331,45 @@ export function NegotiationChatScreen({
       />
 
       <View style={styles.actionBar}>
-        {thread.status === "waiting" ? (
+        {waitingForReply ? (
           <View style={styles.centeredNote}>
-            <Text style={styles.waitingTitle}>Offer Sent</Text>
+            <Text style={styles.waitingTitle}>
+              {declinedNotice
+                ? "Waiting for a new offer"
+                : thread.pendingOffer?.author === "you"
+                  ? "Offer Sent"
+                  : "Waiting for reply"}
+            </Text>
             <Text style={styles.waitingSubtitle}>
-              {role === "seller" ? "Awaiting buyer" : "Waiting for reply"}
+              {declinedNotice
+                ? `Waiting for ${thread.counterparty} to respond`
+                : role === "seller"
+                  ? "Awaiting buyer"
+                  : "Waiting for reply"}
             </Text>
           </View>
         ) : null}
 
-        {thread.status === "your_turn" ? (
+        {showDeclinedNotice ? (
+          <View style={styles.declinedNoticeBox}>
+            <Text style={styles.declinedNoticeText}>{declinedTitle}</Text>
+          </View>
+        ) : null}
+
+        {canRespond ? (
           <View style={styles.actionStack}>
             <ChatActionButton
-              title={`Accept ${priceLabel(theirPrice)}`}
+              title={`Accept ${priceLabel(offerToActOn?.price ?? theirPrice)}`}
               variant="primary"
               onPress={handleAccept}
               disabled={busy}
             />
             <View style={styles.actionRow}>
-              {remaining > 0 ? (
+              {canCounterNow ? (
                 <View style={styles.actionFlex}>
                   <ChatActionButton
                     title="Counter offer"
-                    onPress={() => {
-                      if (offersAllowed()) setCounterOpen(true);
-                    }}
+                    onPress={openCounterSheet}
                     disabled={busy}
                   />
                 </View>
@@ -391,12 +382,29 @@ export function NegotiationChatScreen({
                 />
               </View>
             </View>
-            {remaining <= 0 ? (
+            {!canCounterNow ? (
               <Text style={styles.limitNote}>
                 Counter limit reached ({counterMax}/{counterMax})
               </Text>
             ) : null}
           </View>
+        ) : null}
+
+        {phase === "offer" && canCounterNow ? (
+          <View style={styles.actionStack}>
+            <ChatActionButton
+              title="Counter offer"
+              variant="primary"
+              onPress={openCounterSheet}
+              disabled={busy}
+            />
+          </View>
+        ) : null}
+
+        {phase === "offer" && !canCounterNow ? (
+          <Text style={styles.limitNote}>
+            Counter limit reached ({counterMax}/{counterMax})
+          </Text>
         ) : null}
 
         {thread.status === "confirmed" ? (
@@ -450,32 +458,39 @@ export function NegotiationChatScreen({
           </View>
         ) : null}
 
-        {!hasCompletedTrade &&
-        (thread.status === "declined" || thread.status === "cancelled") ? (
-          <View style={styles.actionStack}>
-            <View style={styles.dangerBox}>
-              <Text style={styles.dangerTitle}>
-                {thread.status === "cancelled"
-                  ? thread.reasonLabel ?? "Negotiation cancelled"
-                  : `Offer declined by ${role === "seller" ? "buyer" : "seller"}`}
-              </Text>
-            </View>
-            <Button
-              title="Make new offer"
-              variant="secondary"
+        {showClosedFooter ? (
+          <View style={styles.dangerBox}>
+            <Text style={styles.dangerTitle}>
+              {thread.status === "cancelled"
+                ? thread.reasonLabel ?? "Negotiation cancelled"
+                : declinedNotice
+                  ? declinedTitle
+                  : "Negotiation closed"}
+            </Text>
+            <Pressable
+              onPress={backToMarket}
               disabled={busy}
-              onPress={() => {
-                if (offersAllowed()) setOfferOpen(true);
-              }}
-            />
+              style={({ pressed }) => [
+                styles.dangerButton,
+                (pressed || busy) && styles.dangerButtonDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Back to market"
+            >
+              <Text style={styles.dangerButtonText}>
+                {role === "seller" ? "Check requirements" : "Check listings"}
+              </Text>
+            </Pressable>
           </View>
         ) : null}
 
-        <ChatComposer
-          disabled={!conversationOpen || busy}
-          onSendText={sendChatText}
-          onSendVoice={sendChatVoice}
-        />
+        {conversationOpen ? (
+          <ChatComposer
+            disabled={busy}
+            onSendText={sendChatText}
+            onSendVoice={sendChatVoice}
+          />
+        ) : null}
       </View>
 
       {counterOpen ? (
@@ -486,20 +501,10 @@ export function NegotiationChatScreen({
           theirOffer={theirPrice}
           remaining={remaining}
           max={thread.counters?.max ?? 2}
+          submitting={busy}
+          submitError={formError}
           onClose={() => setCounterOpen(false)}
           onSubmit={(price, note, voice) => void sendCounter(price, note, voice)}
-        />
-      ) : null}
-
-      {offerOpen ? (
-        <OfferSheet
-          visible
-          role={role}
-          listedPrice={thread.listedPrice}
-          availableBags={thread.availableBags}
-          requestedBags={thread.requestedBags}
-          onClose={() => setOfferOpen(false)}
-          onSubmit={(draft) => void sendOffer(draft)}
         />
       ) : null}
 
@@ -516,6 +521,23 @@ export function NegotiationChatScreen({
           const bags = partial?.available ?? thread.availableBags;
           setQtyOpen(false);
           void acceptOffer(bags, true);
+        }}
+      />
+
+      <ConfirmSheet
+        visible={withdrawOpen}
+        title="Withdraw offer?"
+        message={`Your offer with ${thread.counterparty} will be withdrawn and this conversation will end.`}
+        confirmTitle="Withdraw"
+        cancelTitle="Keep offer"
+        error={formError}
+        isBusy={busy}
+        onConfirm={() => void withdraw()}
+        onCancel={() => {
+          if (!busy) {
+            setWithdrawOpen(false);
+            setFormError(null);
+          }
         }}
       />
 
@@ -771,15 +793,49 @@ const styles = StyleSheet.create({
     color: colors.success,
     marginTop: 2,
   },
-  dangerBox: {
-    padding: spacing.md,
-    borderRadius: 12,
+  /** Open-thread declined notice: informs both sides without blocking actions. */
+  declinedNoticeBox: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 8,
     backgroundColor: colors.dangerBg,
     alignItems: "center",
   },
+  declinedNoticeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.danger800,
+    textAlign: "center",
+  },
+  /** Prototype declined footer: danger-100 panel with the button inside it. */
+  dangerBox: {
+    padding: spacing.compact,
+    borderRadius: 12,
+    backgroundColor: colors.danger100,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   dangerTitle: {
     fontSize: 13,
+    fontWeight: "600",
+    color: colors.danger800,
+    textAlign: "center",
+  },
+  dangerButton: {
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.dividerOverlay,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dangerButtonText: {
+    fontSize: 13,
     fontWeight: "700",
-    color: colors.danger,
+    color: colors.danger800,
+  },
+  dangerButtonDisabled: {
+    opacity: 0.45,
   },
 });

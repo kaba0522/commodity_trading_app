@@ -152,7 +152,6 @@ export function ListingDetailScreen({
 
   async function sendOffer(draft: OfferDraft) {
     if (!listing) return;
-    setOfferOpen(false);
     setBusy(true);
     setFormError(null);
     try {
@@ -379,6 +378,8 @@ export function ListingDetailScreen({
               listedPrice={listing.price}
               availableBags={availableBags}
               requestedBags={offerBags}
+              submitting={busy}
+              submitError={formError}
               onClose={() => setOfferOpen(false)}
               onSubmit={(draft) => void sendOffer(draft)}
             />

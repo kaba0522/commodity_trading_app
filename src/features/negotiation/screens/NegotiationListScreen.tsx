@@ -4,6 +4,7 @@ import { FormStatus } from "@/components/ui/FormStatus";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
 import { useNegotiations } from "@/features/negotiation/hooks/useNegotiations";
 import {
+  isCompletedTradeStatus,
   latestOfferPrice,
   statusLabel,
   type NegotiationRole,
@@ -143,12 +144,10 @@ export function NegotiationListScreen({
   );
 }
 
-/** FE doc §4: Completed shows only Completed and Cancelled trades. */
+/** FE doc §4: Completed shows completed/confirmed trades and cancellations. */
 function belongsToTab(thread: NegotiationThread, tab: Tab): boolean {
-  if (tab === "completed") {
-    return thread.status === "completed" || thread.status === "cancelled";
-  }
-  return thread.status !== "completed" && thread.status !== "cancelled";
+  const completed = isCompletedTradeStatus(thread);
+  return tab === "completed" ? completed : !completed;
 }
 
 /** FE doc §4: the buyer's turn is a primary "Respond" badge, not a status tag. */

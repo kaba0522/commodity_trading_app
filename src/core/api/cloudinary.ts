@@ -53,26 +53,49 @@ export interface CloudinaryUploadResult {
   bytes?: number;
 }
 
-function uploadErrorMessage(raw: string, status: number): string {
+function uploadErrorMessage(
+  raw: string,
+  status: number,
+  resourceType: CloudinaryResourceType,
+): string {
+  let message = "";
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object") {
       const error = (parsed as Record<string, unknown>)["error"];
       if (error && typeof error === "object") {
-        const message = (error as Record<string, unknown>)["message"];
-        if (typeof message === "string" && message.trim()) return message;
+        const candidate = (error as Record<string, unknown>)["message"];
+        if (typeof candidate === "string") message = candidate.trim();
       }
     }
   } catch {
-    // Keep a useful plain-text error response below.
+    // Fall back to the plain-text response below.
   }
-  return raw.trim() || `Cloudinary upload failed (${status})`;
+  if (!message) message = raw.trim();
+
+  if (/invalid format|not allowed|allowed_formats|unsupported format/i.test(message)) {
+    if (resourceType === "audio") {
+      return "This audio format is not supported. Please record a new voice note.";
+    }
+    if (resourceType === "image") {
+      return "Photos must be JPG, JPEG, PNG, or WebP.";
+    }
+    return "Videos must be MP4, MOV, or WebM.";
+  }
+
+  return message || `Cloudinary upload failed (${status})`;
 }
 
 export async function cloudinaryUploadFile(
   asset: CloudinaryUploadAsset,
   resourceType: CloudinaryResourceType,
   token: string,
+  /**
+   * Voice notes are signed as `audio` so the backend can attribute the upload
+   * to the sender, but Cloudinary stores them on /video/upload. Override this
+   * only when an audio upload error needs audio-specific wording.
+   */
+  errorContext: CloudinaryResourceType = resourceType,
 ): Promise<CloudinaryUploadResult> {
   const signed = await cloudinarySignUrl({ resourceType }, token);
   if (!signed.success) {
@@ -126,7 +149,7 @@ export async function cloudinaryUploadFile(
     clearTimeout(timeout);
   }
   if (!response.ok) {
-    throw new Error(uploadErrorMessage(raw, response.status));
+    throw new Error(uploadErrorMessage(raw, response.status, errorContext));
   }
 
   let result: unknown;

@@ -16,7 +16,8 @@ export function VoiceNotePlayer({
   durationMs = 0,
   mine = true,
 }: VoiceNotePlayerProps) {
-  const player = useAudioPlayer(uri ?? null);
+  // Remote Cloudinary URLs load more reliably when downloaded first.
+  const player = useAudioPlayer(uri ?? null, { downloadFirst: true });
   const status = useAudioPlayerStatus(player);
 
   const playbackSeconds = Number.isFinite(status.duration) ? status.duration : 0;
@@ -35,38 +36,47 @@ export function VoiceNotePlayer({
       player.pause();
       return;
     }
-    if (totalSeconds > 0 && currentSeconds >= totalSeconds - 0.05) {
-      await player.seekTo(0);
+    try {
+      if (totalSeconds > 0 && currentSeconds >= totalSeconds - 0.05) {
+        await player.seekTo(0);
+      }
+      player.play();
+    } catch {
+      // `status.error` renders the visible message for failed playback.
     }
-    player.play();
   }
 
   const playColor = mine ? colors.primary : colors.counterparty;
 
   return (
-    <View style={styles.row}>
-      <Pressable
-        onPress={() => void toggle()}
-        disabled={!uri}
-        style={[styles.play, { borderColor: playColor }]}
-        accessibilityRole="button"
-        accessibilityLabel={status.playing ? "Pause voice note" : "Play voice note"}
-      >
-        <Text style={[styles.playText, { color: playColor }]}>
-          {status.playing ? "❚❚" : "▶"}
-        </Text>
-      </Pressable>
+    <View>
+      <View style={styles.row}>
+        <Pressable
+          onPress={() => void toggle()}
+          disabled={!uri}
+          style={[styles.play, { borderColor: playColor }]}
+          accessibilityRole="button"
+          accessibilityLabel={status.playing ? "Pause voice note" : "Play voice note"}
+        >
+          <Text style={[styles.playText, { color: playColor }]}>
+            {status.playing ? "❚❚" : "▶"}
+          </Text>
+        </Pressable>
 
-      <View style={styles.wave}>
-        <View
-          style={[
-            styles.waveFill,
-            { width: `${Math.round(progress * 100)}%`, backgroundColor: playColor },
-          ]}
-        />
+        <View style={styles.wave}>
+          <View
+            style={[
+              styles.waveFill,
+              { width: `${Math.round(progress * 100)}%`, backgroundColor: playColor },
+            ]}
+          />
+        </View>
+
+        <Text style={styles.duration}>{duration}</Text>
       </View>
-
-      <Text style={styles.duration}>{duration}</Text>
+      {status.error ? (
+        <Text style={styles.error}>Could not play voice note</Text>
+      ) : null}
     </View>
   );
 }
@@ -106,5 +116,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
     minWidth: 34,
     textAlign: "right",
+  },
+  error: {
+    fontSize: 10.5,
+    color: colors.dangerText,
+    marginTop: 4,
   },
 });

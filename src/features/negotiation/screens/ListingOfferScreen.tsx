@@ -82,6 +82,7 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
   const [partial, setPartial] = useState<PartialFillInfo | null>(null);
 
   const isBuyer = role === "buyer";
+  const sellerPriceOpen = !isBuyer && seed.listedPrice <= 0;
   const fallback = isBuyer ? "/browse" : "/requirements";
 
   function offersAllowed(): boolean {
@@ -122,7 +123,10 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
       setFormError("This listing is missing its id. Go back and reopen it.");
       return;
     }
-    setOfferOpen(false);
+    if (sellerPriceOpen && draft.price <= 0) {
+      setFormError("Enter the price you want to offer.");
+      return;
+    }
     setBusy(true);
     setFormError(null);
     try {
@@ -170,7 +174,12 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
 
   function handleDirectTrade() {
     if (!isBuyer) {
-      // Seller-side BUY requirements have no direct trade: start with a price.
+      // Seller-side BUY requirements have no direct trade. If the buyer did
+      // not set a target price, §22D leaves the first price to the seller.
+      if (sellerPriceOpen) {
+        openOffer();
+        return;
+      }
       void sendOffer({
         price: seed.listedPrice,
         bags: seed.requestedBags,
@@ -216,7 +225,11 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
         <Text style={styles.item}>{seed.item}</Text>
         <Text style={styles.muted}>
           {seed.counterparty} ·{" "}
-          {isBuyer ? "asking" : "targeting"} {priceLabel(seed.listedPrice)} per bag ·{" "}
+          {isBuyer
+            ? `asking ${priceLabel(seed.listedPrice)} per bag`
+            : sellerPriceOpen
+              ? "target price not set"
+              : `targeting ${priceLabel(seed.listedPrice)} per bag`}{" · "}
           {bagsLabel(seed.requestedBags)}
         </Text>
 
@@ -258,14 +271,16 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
           {isBuyer ? "Seller's ask" : "Buyer's target"}
         </Text>
         <Text style={styles.bigPrice}>
-          {priceLabel(seed.listedPrice)}
-          <Text style={styles.perBag}> /bag</Text>
+          {sellerPriceOpen ? "Price not set" : priceLabel(seed.listedPrice)}
+          {!sellerPriceOpen ? <Text style={styles.perBag}> /bag</Text> : null}
         </Text>
         <Button
           title={
             isBuyer
               ? `Buy at ${priceLabel(seed.listedPrice)}`
-              : `Offer at ${priceLabel(seed.listedPrice)}`
+              : sellerPriceOpen
+                ? "Set your price"
+                : `Offer at ${priceLabel(seed.listedPrice)}`
           }
           onPress={handleDirectTrade}
           disabled={busy}
@@ -291,6 +306,8 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
           listedPrice={seed.listedPrice}
           availableBags={seed.availableBags}
           requestedBags={seed.requestedBags}
+          submitting={busy}
+          submitError={formError}
           onClose={() => setOfferOpen(false)}
           onSubmit={(draft) => void sendOffer(draft)}
         />
@@ -309,7 +326,10 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
           const bags = dialogAvailable;
           setQtyOpen(false);
           if (isBuyer) void directTrade(bags, true);
-          else {
+          else if (sellerPriceOpen) {
+            setPartial(null);
+            openOffer();
+          } else {
             void sendOffer({
               price: dialogPrice,
               bags,

@@ -1,3 +1,5 @@
+import { MicIcon } from "@/components/common/TabIcons";
+import { durationLabel } from "@/core/utils/format";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { VoiceNote } from "@/types/domain";
@@ -86,7 +88,9 @@ export function ChatComposer({ disabled, onSendText, onSendVoice }: ChatComposer
       ) : recorder.recording ? (
         <View style={styles.recordingRow}>
           <View style={styles.recordingDot} />
-          <Text style={styles.recordingText}>Recording…</Text>
+          <Text style={styles.recordingText}>
+            Recording… {durationLabel(recorder.durationMs)} / 3:00
+          </Text>
           <Pressable onPress={() => void recorder.stop()} style={styles.stopButton}>
             <Text style={styles.stopText}>Stop</Text>
           </Pressable>
@@ -110,7 +114,7 @@ export function ChatComposer({ disabled, onSendText, onSendVoice }: ChatComposer
             accessibilityRole="button"
             accessibilityLabel="Record voice note"
           >
-            <Text style={styles.micText}>♪</Text>
+            <MicIcon size={24} color="black" />
           </Pressable>
           <Pressable
             onPress={() => void sendText()}
@@ -164,11 +168,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
-  },
-  micText: {
-    fontSize: 19,
-    fontWeight: "800",
-    color: colors.primary,
   },
   sendButton: {
     minWidth: 54,

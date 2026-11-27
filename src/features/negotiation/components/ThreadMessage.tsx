@@ -22,26 +22,39 @@ export function ThreadMessage({ message, role }: ThreadMessageProps) {
 
   const mine = message.author === "you";
   if (message.kind === "offer") {
+    const declined = message.status === "declined";
     const label = mine
       ? "Your offer"
-      : role === "buyer"
-        ? "Seller's counter"
-        : "Buyer's offer";
+      : declined && role === "buyer"
+        ? "Counter offer"
+        : role === "buyer"
+          ? "Seller's counter"
+          : "Buyer's offer";
     return (
       <View style={[styles.row, mine ? styles.rowRight : styles.rowLeft]}>
         <View
           style={[
             styles.offerCard,
-            mine ? styles.offerMine : styles.offerTheirs,
+            declined ? styles.offerDeclined : styles.offerActive,
           ]}
         >
           <View style={styles.offerHeader}>
-            <Text style={[styles.offerLabel, mine ? styles.labelMine : styles.labelTheirs]}>
+            <Text
+              style={[
+                styles.offerLabel,
+                declined ? styles.labelDeclined : styles.labelActive,
+              ]}
+            >
               {label.toUpperCase()}
             </Text>
             <Text style={styles.time}>{message.time}</Text>
           </View>
-          <Text style={[styles.offerPrice, mine ? styles.priceMine : styles.priceTheirs]}>
+          <Text
+            style={[
+              styles.offerPrice,
+              declined ? styles.priceDeclined : styles.priceActive,
+            ]}
+          >
             {priceLabel(message.price ?? 0)}
           </Text>
           {message.note ? <Text style={styles.note}>{message.note}</Text> : null}
@@ -65,11 +78,15 @@ export function ThreadMessage({ message, role }: ThreadMessageProps) {
             mine ? styles.bubbleMine : styles.bubbleTheirs,
           ]}
         >
-          <VoiceNotePlayer
-            uri={message.voice?.uri}
-            durationMs={message.voice?.durationMs ?? 12000}
-            mine={mine}
-          />
+          {message.voice?.uri ? (
+            <VoiceNotePlayer
+              uri={message.voice.uri}
+              durationMs={message.voice.durationMs ?? 0}
+              mine={mine}
+            />
+          ) : (
+            <Text style={styles.bubbleText}>Voice note unavailable</Text>
+          )}
           <Text style={styles.timeBubble}>{message.time}</Text>
         </View>
       </View>
@@ -116,13 +133,15 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     gap: 2,
   },
-  offerMine: {
+  /** Every active offer is blue; only declined offers use the orange accent. */
+  offerActive: {
     backgroundColor: colors.primaryTint,
     borderLeftColor: colors.primary,
   },
-  offerTheirs: {
-    backgroundColor: colors.counterpartyTint,
-    borderLeftColor: colors.counterparty,
+  /** Prototype declined state: white card, orange accent, deep-red price. */
+  offerDeclined: {
+    backgroundColor: colors.card,
+    borderLeftColor: colors.declinedAccent,
   },
   offerHeader: {
     flexDirection: "row",
@@ -135,14 +154,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  labelMine: { color: colors.primaryDark },
-  labelTheirs: { color: colors.counterparty },
+  labelActive: { color: colors.primaryDark },
+  labelDeclined: { color: colors.declinedAccent },
   offerPrice: {
     fontSize: 23,
     fontWeight: "800",
   },
-  priceMine: { color: colors.primaryDark },
-  priceTheirs: { color: colors.counterparty },
+  priceActive: { color: colors.primaryDark },
+  priceDeclined: { color: colors.declinedPrice },
   note: {
     fontSize: 13,
     color: colors.text,

@@ -1,3 +1,4 @@
+import { MicIcon } from "@/components/common/TabIcons";
 import { durationLabel } from "@/core/utils/format";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -66,7 +67,7 @@ export function VoiceNoteButton({
           accessibilityLabel={label}
         >
           <View style={styles.icon}>
-            <Text style={styles.iconText}>♪</Text>
+            <MicIcon size={24} color="black" />
           </View>
           <Text style={styles.text}>{label}</Text>
         </Pressable>
@@ -104,11 +105,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primaryTint,
-  },
-  iconText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.primary,
   },
   text: {
     fontSize: 13,

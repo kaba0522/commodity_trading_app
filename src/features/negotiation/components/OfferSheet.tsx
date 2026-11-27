@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { bagsLabel, priceLabel } from "@/core/utils/format";
 import { useVoiceRecorder } from "@/features/negotiation/hooks/useVoiceRecorder";
 import { colors } from "@/theme/colors";
@@ -24,6 +25,9 @@ interface OfferSheetProps {
   listedPrice: number;
   availableBags: number;
   requestedBags?: number;
+  submitting?: boolean;
+  /** API error from the parent, shown inside the sheet so it is not hidden. */
+  submitError?: string | null;
   onClose: () => void;
   onSubmit: (draft: OfferDraft) => void;
 }
@@ -35,11 +39,16 @@ export function OfferSheet({
   listedPrice,
   availableBags,
   requestedBags,
+  submitting = false,
+  submitError,
   onClose,
   onSubmit,
 }: OfferSheetProps) {
+  const sellerSetsPrice = role === "seller" && listedPrice <= 0;
   const [price, setPrice] = useState(() =>
-    String(role === "buyer" ? Math.round(listedPrice * 0.95) : listedPrice),
+    sellerSetsPrice
+      ? ""
+      : String(role === "buyer" ? Math.round(listedPrice * 0.95) : listedPrice),
   );
   const [bags, setBags] = useState(() =>
     String(requestedBags || Math.min(availableBags || 50, 50) || 50),
@@ -82,9 +91,13 @@ export function OfferSheet({
         <Text style={styles.listedKicker}>
           {role === "buyer" ? "Listed price" : "Buyer's target"}
         </Text>
-        <Text style={styles.listedPrice}>{priceLabel(listedPrice)}</Text>
+        <Text style={styles.listedPrice}>
+          {sellerSetsPrice ? "Price not set" : priceLabel(listedPrice)}
+        </Text>
         <Text style={styles.listedHint}>
-          Minimum {priceLabel(offerFloor(listedPrice))} (90% of listed price)
+          {sellerSetsPrice
+            ? "Set the price you want to offer."
+            : `Minimum ${priceLabel(offerFloor(listedPrice))} (90% of listed price)`}
         </Text>
       </View>
 
@@ -95,7 +108,11 @@ export function OfferSheet({
           setPrice(value.replace(/[^0-9,]/g, ""));
           setError(null);
         }}
-        placeholder={`${priceLabel(offerFloor(listedPrice))} – ${priceLabel(listedPrice)}`}
+        placeholder={
+          sellerSetsPrice
+            ? "Enter your price per bag"
+            : `${priceLabel(offerFloor(listedPrice))} – ${priceLabel(listedPrice)}`
+        }
         error={error ? priceIssue : null}
         large
       />
@@ -148,8 +165,9 @@ export function OfferSheet({
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {submitError ? <FormStatus kind="error" message={submitError} /> : null}
 
-      <Button title="Send Offer" onPress={submit} />
+      <Button title="Send Offer" onPress={submit} loading={submitting} disabled={submitting} />
     </Sheet>
   );
 }

@@ -92,18 +92,227 @@ function timeLabel(iso: string): string {
   return Number.isNaN(date.getTime()) ? "" : clockLabel(date);
 }
 
-function systemMessage(content: string): NegotiationMessage {
+/** Sortable timestamp, accepting ISO strings and Unix seconds/milliseconds. */
+function sortAtOf(record: Obj, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const raw = record[key];
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      return raw < 1_000_000_000_000 ? raw * 1000 : raw;
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      const numeric = Number(raw);
+      if (Number.isFinite(numeric) && numeric > 0) {
+        return numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+      }
+      const parsed = Date.parse(raw);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function systemMessage(content: string, sortAt?: number): NegotiationMessage {
   return {
     id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind: "system",
     author: "system",
     text: content,
     time: "",
+    ...(sortAt !== undefined ? { sortAt } : {}),
   };
+}
+
+/** Interleave backend offers and chat into one chronological conversation. */
+function chronological(messages: NegotiationMessage[]): NegotiationMessage[] {
+  return messages
+    .map((message, index) => ({ message, index }))
+    .sort((left, right) => {
+      const a = left.message.sortAt;
+      const b = right.message.sortAt;
+      if (a === undefined && b === undefined) return left.index - right.index;
+      if (a === undefined) return 1;
+      if (b === undefined) return -1;
+      return a - b || left.index - right.index;
+    })
+    .map(({ message }) => message);
+}
+
+function isOfferDeclinedLabel(value: string): boolean {
+  return /offer[\s_-]*declined/i.test(value);
+}
+
+function isTradeCompletionLabel(value: string): boolean {
+  return /trade[\s_-]*(confirmed|completed)/i.test(value);
+}
+
+function positiveNumber(value: unknown): number | null {
+  const raw = typeof value === "string" ? Number(value.replace(/[,₹\s]/g, "")) : value;
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : null;
+}
+
+/** Price/bag values sometimes live on the system event rather than `trade`. */
+function completionValues(record: Obj): { price: number | null; bags: number | null } {
+  const nested = obj(
+    record["metadata"] ??
+      record["meta"] ??
+      record["payload"] ??
+      record["data"] ??
+      record["trade"],
+  );
+  return {
+    price:
+      positiveNumber(record["finalPrice"] ?? record["tradePrice"] ?? record["price"]) ??
+      positiveNumber(
+        nested["finalPrice"] ?? nested["tradePrice"] ?? nested["price"] ?? nested["amount"],
+      ),
+    bags:
+      positiveNumber(
+        record["quantityBags"] ?? record["tradeBags"] ?? record["bags"] ?? record["bagsRequested"],
+      ) ??
+      positiveNumber(
+        nested["quantityBags"] ?? nested["bags"] ?? nested["bagsRequested"] ?? nested["quantity"],
+      ),
+  };
+}
+
+/** Last resort: read values already rendered inside a backend message string. */
+function completionValuesFromText(value: string): {
+  price: number | null;
+  bags: number | null;
+} {
+  const priceMatch =
+    value.match(/(?:₹|INR|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i) ??
+    value.match(/\b(?:price|amount|total)\b[^\d₹]*([\d,]+(?:\.\d+)?)/i);
+  const bagsMatch =
+    value.match(/([\d,]+)\s*bags?\b/i) ??
+    value.match(/\bbags?\b[^\d]*([\d,]+)/i);
+  return {
+    price: priceMatch ? positiveNumber(priceMatch[1]) : null,
+    bags: bagsMatch ? positiveNumber(bagsMatch[1]) : null,
+  };
+}
+
+/** Prototype wording: `Trade completed · ₹12,200 × 50 bags`. */
+function formatTradeSummary(price: number | null, bags: number | null): string {
+  if (price === null && (bags === null || bags <= 0)) return "";
+  const pricePart = price !== null ? priceLabel(price) : "₹—";
+  const bagsPart = bags !== null && bags > 0 ? ` × ${bagsLabel(bags)}` : "";
+  return ` · ${pricePart}${bagsPart}`;
+}
+
+function tradeSummaryOf(
+  raw: Obj,
+  fallbackPrice: number | null,
+  fallbackBags: number | null,
+): string {
+  const content = text(raw, "content", "messageText");
+  const own = completionValues(raw);
+  const parsed = completionValuesFromText(content);
+  return formatTradeSummary(
+    own.price ?? parsed.price ?? fallbackPrice,
+    own.bags ?? parsed.bags ?? fallbackBags,
+  );
+}
+
+/** Replace raw backend event labels with the prototype's user-facing wording. */
+function displayedSystemText(
+  type: string,
+  content: string,
+  tradeSummary = "",
+): string {
+  const label = content || type.replace(/[_-]+/g, " ").toLowerCase();
+  if (isOfferDeclinedLabel(label) || isOfferDeclinedLabel(type)) {
+    return "You declined this offer";
+  }
+  if (isTradeCompletionLabel(label) || isTradeCompletionLabel(type)) {
+    return `Trade completed${tradeSummary}`;
+  }
+  return label;
 }
 
 function authorOf(senderId: string, currentUserId?: string): "you" | "them" {
   return currentUserId && senderId ? (senderId === currentUserId ? "you" : "them") : "them";
+}
+
+/**
+ * §22D says the pending offer lives in `offers[]` with `status: "pending"`.
+ * Never infer it from rendered chat bubbles: after a decline the turn goes
+ * back to the offerer, whose own offer is not accept/declineable by them.
+ */
+function pendingOfferOf(
+  offers: Obj[],
+  currentUserId?: string,
+): NegotiationThread["pendingOffer"] | undefined {
+  for (let i = offers.length - 1; i >= 0; i -= 1) {
+    const offer = offers[i];
+    const id = text(offer, "id");
+    const price = number(offer, "price");
+    const state = text(offer, "status").toLowerCase();
+    if (!id || price === null || (state && state !== "pending")) continue;
+    return {
+      id,
+      author: authorOf(text(offer, "byUserId"), currentUserId),
+      price,
+      bags: number(offer, "bagsRequested", "bags") ?? 0,
+      isSystem: offer["isSystem"] === true,
+    };
+  }
+  return undefined;
+}
+
+function nestedMedia(record: Obj): Obj {
+  return obj(record["voiceNote"] ?? record["voice"] ?? record["audio"] ?? record["content"]);
+}
+
+/** Find the playable URL across the voice/message shapes the backend returns. */
+function voiceUrlOf(record: Obj): string {
+  const direct = text(
+    record,
+    "voiceNoteUrl",
+    "voiceUrl",
+    "audioUrl",
+    "mediaUrl",
+    "fileUrl",
+    "url",
+  );
+  if (direct) return direct;
+
+  const nested = nestedMedia(record);
+  const nestedUrl = text(nested, "url", "secureUrl", "secure_url", "uri", "fileUrl");
+  if (nestedUrl) return nestedUrl;
+
+  // A voice note may be posted as `{ type: "voice_note", content: "<url>" }`.
+  const content = text(record, "content", "messageText");
+  if (
+    /^https?:\/\//i.test(content) &&
+    /\.(m4a|mp3|aac|ogg|webm|wav|mp4)([?#]|$)/i.test(content)
+  ) {
+    return content;
+  }
+  return "";
+}
+
+function senderIdOf(record: Obj): string {
+  const direct = text(
+    record,
+    "senderId",
+    "userId",
+    "byUserId",
+    "senderUserId",
+    "authorId",
+  );
+  if (direct) return direct;
+  return text(obj(record["sender"] ?? record["user"] ?? record["author"]), "id");
+}
+
+function durationMsOf(record: Obj): number {
+  const nested = nestedMedia(record);
+  const raw =
+    number(record, "durationMs", "voiceDurationMs", "duration") ??
+    number(nested, "durationMs", "duration");
+  if (raw === null || raw <= 0) return 0;
+  // Some endpoints send seconds instead of milliseconds.
+  return raw < 1000 ? raw * 1000 : raw;
 }
 
 /** Backend offer → offer card (plus an optional voice-note bubble). */
@@ -114,9 +323,10 @@ function offerMessages(offer: Obj, currentUserId?: string): NegotiationMessage[]
   const senderId = text(offer, "byUserId");
   const author = authorOf(senderId, currentUserId);
   const time = timeLabel(text(offer, "createdAt", "updatedAt"));
+  const sortAt = sortAtOf(offer, "createdAt", "updatedAt");
   const state = text(offer, "status").toLowerCase();
   const note = text(offer, "messageText");
-  const voiceUrl = text(offer, "voiceNoteUrl");
+  const voiceUrl = voiceUrlOf(offer);
   const message: NegotiationMessage = {
     id,
     offerId: id,
@@ -127,6 +337,7 @@ function offerMessages(offer: Obj, currentUserId?: string): NegotiationMessage[]
     time,
     byUserId: senderId || undefined,
     onBehalf: offer["onBehalf"] === true,
+    ...(sortAt !== undefined ? { sortAt } : {}),
     status:
       state === "declined" || state === "accepted" || state === "withdrawn"
         ? state
@@ -138,34 +349,47 @@ function offerMessages(offer: Obj, currentUserId?: string): NegotiationMessage[]
       id: `${id}-voice`,
       kind: "voice",
       author,
-      voice: { uri: voiceUrl, durationMs: 0 },
+      voice: { uri: voiceUrl, durationMs: durationMsOf(offer) },
       time,
       onBehalf: offer["onBehalf"] === true,
+      ...(sortAt !== undefined ? { sortAt } : {}),
     });
   }
   return result;
 }
 
 /** Backend chat message / system event → conversation row. */
-function chatMessage(raw: Obj, currentUserId?: string): NegotiationMessage | null {
+function chatMessage(
+  raw: Obj,
+  currentUserId?: string,
+  fallbackPrice: number | null = null,
+  fallbackBags: number | null = null,
+): NegotiationMessage | null {
   const id = text(raw, "id");
   if (!id) return null;
-  const type = text(raw, "type").toLowerCase();
+  const type = text(raw, "type", "messageType", "kind").toLowerCase();
   if (type === "offer_card") return null; // offers are mapped separately
-  const senderId = text(raw, "senderId");
+  const senderId = senderIdOf(raw);
   const content = text(raw, "content", "messageText");
   const time = timeLabel(text(raw, "createdAt", "updatedAt"));
-  if (type.includes("voice") || type === "audio") {
+  const sortAt = sortAtOf(raw, "createdAt", "updatedAt", "sentAt", "timestamp");
+  const voiceUrl = voiceUrlOf(raw);
+  const isVoice =
+    type.includes("voice") ||
+    type.includes("audio") ||
+    Boolean(voiceUrl);
+  if (isVoice) {
     return {
       id,
       kind: "voice",
       author: authorOf(senderId, currentUserId),
       voice: {
-        uri: content || text(raw, "voiceNoteUrl", "url", "fileUrl"),
-        durationMs: number(raw, "durationMs") ?? 0,
+        uri: voiceUrl || content,
+        durationMs: durationMsOf(raw),
       },
       time,
       onBehalf: raw["onBehalf"] === true,
+      ...(sortAt !== undefined ? { sortAt } : {}),
     };
   }
   const systemTypes = new Set([
@@ -185,12 +409,18 @@ function chatMessage(raw: Obj, currentUserId?: string): NegotiationMessage | nul
     "trade_cancelled",
   ]);
   if (systemTypes.has(type) || type.includes("system") || type.includes("event")) {
+    const isTradeEvent = isTradeCompletionLabel(type) || isTradeCompletionLabel(content);
     return {
       id,
       kind: "system",
       author: "system",
-      text: content || type.replace(/[_-]+/g, " ").toLowerCase(),
+      text: displayedSystemText(
+        type,
+        content,
+        isTradeEvent ? tradeSummaryOf(raw, fallbackPrice, fallbackBags) : "",
+      ),
       time: "",
+      ...(sortAt !== undefined ? { sortAt } : {}),
     };
   }
   return {
@@ -200,6 +430,7 @@ function chatMessage(raw: Obj, currentUserId?: string): NegotiationMessage | nul
     text: content,
     time,
     onBehalf: raw["onBehalf"] === true,
+    ...(sortAt !== undefined ? { sortAt } : {}),
   };
 }
 
@@ -211,25 +442,29 @@ function counterSide(raw: unknown): { used: number; left: number } {
   };
 }
 
-function threadStatus(raw: Obj, hasTrade: boolean): NegotiationStatus {
+function threadStatus(
+  raw: Obj,
+  hasTrade: boolean,
+  hasCompletionEvidence = false,
+): NegotiationStatus {
   const state = text(raw, "status").toLowerCase();
   const reason = text(raw, "closeReason").toUpperCase();
   const uiStatus = text(raw, "uiStatus").toUpperCase();
+  const completedStatus = (): NegotiationStatus =>
+    raw["brokerPending"] === true || raw["buyerCanChooseBroker"] === true
+      ? "confirmed"
+      : "completed";
 
   if (reason === "WITHDRAWN" || state === "withdrawn") return "withdrawn";
   // An accepted offer is a completed trade, even if the backend closes the
   // negotiation with a generic ACCEPTED/CANCELLED status afterwards.
-  if (
+  const explicitCompletion =
     reason === "TRADE_COMPLETED" ||
+    reason === "TRADE_CONFIRMED" ||
     state === "accepted" ||
     state === "trade_confirmed" ||
-    uiStatus === "COMPLETED"
-  ) {
-    return raw["brokerPending"] === true ||
-      raw["buyerCanChooseBroker"] === true
-      ? "confirmed"
-      : "completed";
-  }
+    /completed|confirmed/i.test(uiStatus);
+  if (explicitCompletion) return completedStatus();
   if (
     reason === "QUANTITY_MISMATCH" ||
     state === "cancelled" ||
@@ -237,12 +472,9 @@ function threadStatus(raw: Obj, hasTrade: boolean): NegotiationStatus {
   ) {
     return "cancelled";
   }
-  if (hasTrade) {
-    return raw["brokerPending"] === true ||
-      raw["buyerCanChooseBroker"] === true
-      ? "confirmed"
-      : "completed";
-  }
+  // A list row can omit `trade` and `closeReason` but still include a trade
+  // event or `tradeId`; that is enough to file it under Completed Trades.
+  if (hasCompletionEvidence || hasTrade) return completedStatus();
   if (state === "open") {
     if (uiStatus === "RESPOND") return "your_turn";
     if (uiStatus === "WAITING") return "waiting";
@@ -275,24 +507,80 @@ export function normalizeThread(
   const role: NegotiationRole =
     roleValue === "seller" || roleValue === "buyer" ? roleValue : defaultRole;
   const trade = obj(record["trade"]);
-  const hasTrade = Boolean(text(trade, "id"));
+  // List rows may carry only `tradeId` instead of the full `trade` object.
+  const hasTrade = Boolean(text(trade, "id") || text(record, "tradeId"));
 
   const rawOffers = array(record, "offers");
-  const offers = rawOffers.flatMap((offer) => offerMessages(offer, currentUserId));
   const latest = obj(record["latestOffer"]);
+  const offerRecords = rawOffers.length > 0 ? rawOffers : text(latest, "id") ? [latest] : [];
+  const pendingOffer = pendingOfferOf(offerRecords, currentUserId);
+  const acceptedState = /^(accepted|confirmed|completed)$/i;
+  const acceptedOffer =
+    rawOffers.find((offer) => acceptedState.test(text(offer, "status"))) ??
+    (acceptedState.test(text(latest, "status")) ? latest : undefined);
+
+  const rawMessages = array(record, "messages");
+  const completionEvents = rawMessages.filter(
+    (message) =>
+      isTradeCompletionLabel(text(message, "type", "messageType", "kind")) ||
+      isTradeCompletionLabel(text(message, "content", "messageText")),
+  );
+  const eventValues = completionEvents.map((message) => {
+    const own = completionValues(message);
+    const parsed = completionValuesFromText(text(message, "content", "messageText"));
+    return { price: own.price ?? parsed.price, bags: own.bags ?? parsed.bags };
+  });
+  const eventPrice = eventValues.map((value) => value.price).find((price) => price !== null) ?? null;
+  const eventBags = eventValues.map((value) => value.bags).find((bags) => bags !== null) ?? null;
+
+  const offers = rawOffers.flatMap((offer) => offerMessages(offer, currentUserId));
   if (offers.length === 0 && text(latest, "id")) {
     offers.push(...offerMessages(latest, currentUserId));
   }
-  const chat = array(record, "messages")
-    .map((message) => chatMessage(message, currentUserId))
+
+  const fallbackRequestedBags =
+    number(record, "bagsRequested") ??
+    number(latest, "bagsRequested") ??
+    number(obj(rawOffers[rawOffers.length - 1]), "bagsRequested", "bags") ??
+    number(obj(rawOffers[0]), "bagsRequested", "bags") ??
+    0;
+  const requestedBags =
+    pendingOffer && pendingOffer.bags > 0 ? pendingOffer.bags : fallbackRequestedBags;
+  const closeReasonCode = text(record, "closeReason").toUpperCase();
+  const hasCompletionEvidence =
+    hasTrade ||
+    completionEvents.length > 0 ||
+    text(record, "status").toLowerCase() === "accepted" ||
+    closeReasonCode === "TRADE_COMPLETED" ||
+    closeReasonCode === "TRADE_CONFIRMED" ||
+    /completed|confirmed/i.test(text(record, "uiStatus"));
+  const tradePrice =
+    number(trade, "finalPrice", "price", "tradePrice", "agreedPrice") ??
+    number(obj(acceptedOffer), "finalPrice", "price", "agreedPrice") ??
+    number(record, "agreedPrice", "tradePrice", "finalPrice") ??
+    eventPrice ??
+    (hasCompletionEvidence ? number(listing, "price", "targetPrice") : null);
+  const tradeBags =
+    number(trade, "quantityBags", "bags", "bagsRequested", "quantity") ??
+    number(obj(acceptedOffer), "bagsRequested", "bags", "quantityBags") ??
+    number(record, "quantityBags", "bags", "bagsRequested") ??
+    eventBags ??
+    (hasCompletionEvidence ? requestedBags : 0);
+
+  // Pass the same fallback numbers to every system event so the completion
+  // notice always shows `Trade completed · ₹… × … bags`, even when the event
+  // payload itself has no price/quantity fields.
+  const chat = rawMessages
+    .map((message) => chatMessage(message, currentUserId, tradePrice, tradeBags))
     .filter((message): message is NegotiationMessage => message !== null);
 
   const closeReason = text(record, "closeReason") || undefined;
   const messages = [...offers, ...chat];
+  const closeSortAt = sortAtOf(record, "closedAt", "updatedAt", "createdAt");
   if (closeReason === "WITHDRAWN") {
-    messages.push(systemMessage("You withdrew this negotiation"));
+    messages.push(systemMessage("You withdrew this negotiation", closeSortAt));
   } else if (closeReason === "QUANTITY_MISMATCH") {
-    messages.push(systemMessage("Cancelled — quantity mismatch"));
+    messages.push(systemMessage("Cancelled — quantity mismatch", closeSortAt));
   }
 
   const firstOffer = offers.find((message) => message.kind === "offer");
@@ -306,12 +594,6 @@ export function normalizeThread(
     number(listing, "availabilityBags") ??
     number(listing, "quantityBags") ??
     0;
-  const requestedBags =
-    number(record, "bagsRequested") ??
-    number(latest, "bagsRequested") ??
-    number(rawOffers[rawOffers.length - 1], "bagsRequested", "bags") ??
-    number(rawOffers[0], "bagsRequested", "bags") ??
-    0;
   const counterObj = obj(record["counters"]);
   const counters = text(counterObj, "max")
     ? {
@@ -322,11 +604,22 @@ export function normalizeThread(
     : undefined;
   const counterUsed = counters?.[role].used ?? 0;
   const confirmedAt = text(trade, "confirmedAt", "createdAt");
-  const tradePrice = number(trade, "finalPrice", "price");
-  const tradeBags = number(trade, "quantityBags", "bags");
+  const fallbackSummary = hasCompletionEvidence
+    ? formatTradeSummary(tradePrice, tradeBags)
+    : "";
   const brokerPending =
     trade["brokerPending"] === true || trade["buyerCanChooseBroker"] === true;
-  const backendStatus = threadStatus({ ...record, brokerPending }, hasTrade);
+  // §22D sends both `isMyTurn` and `turnUserId`; a list row may only send the
+  // latter. Honour either so the chat never shows actions for the wrong side.
+  const isMyTurn =
+    typeof record["isMyTurn"] === "boolean"
+      ? record["isMyTurn"]
+      : Boolean(currentUserId && text(record, "turnUserId") === currentUserId);
+  const backendStatus = threadStatus(
+    { ...record, brokerPending, isMyTurn },
+    hasTrade,
+    hasCompletionEvidence,
+  );
   const hasCompletionNotice = messages.some(
     (message) =>
       message.kind === "system" &&
@@ -344,15 +637,32 @@ export function normalizeThread(
   // Prototype completion notice in the thread, above the compact success box.
   if (
     (status === "completed" || status === "confirmed") &&
-    tradePrice !== null &&
+    fallbackSummary &&
     !hasCompletionNotice
   ) {
     messages.push(
       systemMessage(
-        `Trade completed · ${priceLabel(tradePrice)} × ${bagsLabel(tradeBags ?? requestedBags)}`,
+        `Trade completed${fallbackSummary}`,
+        sortAtOf(record, "closedAt", "updatedAt", "confirmedAt"),
       ),
     );
   }
+
+  // Backend events often arrive as raw labels (`OFFER_DECLINED`,
+  // `TRADE_CONFIRMED`). Show the prototype wording with trade details.
+  for (let i = 0; i < messages.length; i += 1) {
+    const message = messages[i];
+    if (message.kind !== "system") continue;
+    const value = message.text ?? "";
+    if (isOfferDeclinedLabel(value)) {
+      messages[i] = { ...message, text: "You declined this offer" };
+    } else if (isTradeCompletionLabel(value) && !value.includes("·")) {
+      messages[i] = { ...message, text: `Trade completed${fallbackSummary}` };
+    }
+  }
+
+  const orderedMessages = chronological(messages);
+
   const quality =
     text(record, "quality", "sellerQuality", "qualityName", "grade") ||
     text(listing, "quality", "sellerQuality", "qualityName", "grade") ||
@@ -396,16 +706,17 @@ export function normalizeThread(
     paymentTerms:
       text(listing, "paymentTerms") || String(number(listing, "paymentTerms") ?? ""),
     status,
-    messages,
+    messages: orderedMessages,
     counterCount: counterUsed,
     updatedAt: confirmedAt ? formatDateLabel(confirmedAt) : "Just now",
     confirmedAt: confirmedAt || undefined,
     agreedPrice: tradePrice ?? undefined,
     trade:
-      hasTrade && tradePrice !== null
+      (hasTrade || hasCompletionNotice || status === "completed" || status === "confirmed") &&
+      tradePrice !== null
         ? {
             price: tradePrice,
-            bags: tradeBags ?? requestedBags,
+            bags: tradeBags || requestedBags,
             broker:
               trade["isSelf"] === true
                 ? "Self"
@@ -420,6 +731,9 @@ export function normalizeThread(
     reasonLabel: text(record, "reasonLabel") || undefined,
     brokerPending,
     buyerCanChooseBroker: trade["buyerCanChooseBroker"] === true,
+    turnUserId: text(record, "turnUserId") || undefined,
+    isMyTurn,
+    pendingOffer,
   };
 }
 
@@ -440,6 +754,9 @@ export interface CounterInput {
 export interface ChatMessageInput {
   type: "text" | "voice_note";
   content: string;
+  /** Some backend versions read the URL from this field instead of `content`. */
+  voiceNoteUrl?: string;
+  durationMs?: number;
 }
 
 export interface AcceptResult {
@@ -460,21 +777,24 @@ function toAcceptResult(raw: unknown, tokenUserId?: string): AcceptResult {
   const envelope = dataEnvelope(raw);
   const status = text(envelope, "status") || "ok";
   const trade = obj(envelope["trade"]);
-  const threadRaw = obj(envelope["negotiation"]);
+  let threadRaw = obj(envelope["negotiation"]);
+  if (status === "partial_fill_proposed") {
+    // §22D returns the system offer next to the thread. Feed it through the
+    // normal offer mapper so `pendingOffer` and the chat card stay in sync.
+    const systemOffer = obj(envelope["offer"]);
+    const systemOfferId = text(systemOffer, "id");
+    if (systemOfferId) {
+      const offers = array(threadRaw, "offers");
+      if (!offers.some((offer) => text(offer, "id") === systemOfferId)) {
+        threadRaw = { ...threadRaw, offers: [...offers, systemOffer] };
+      }
+    }
+  }
   const thread =
     normalizeThread(withTrade(threadRaw, trade), tokenUserId) ??
     normalizeThread(withTrade(raw, trade), tokenUserId);
   if (!thread) {
     throw new ApiError(502, "The server returned an unsupported negotiation format.");
-  }
-  if (status === "partial_fill_proposed") {
-    const systemOffer = obj(envelope["offer"]);
-    const extra = offerMessages(systemOffer, tokenUserId);
-    extra.forEach((message) => {
-      if (!thread.messages.some((current) => current.id === message.id)) {
-        thread.messages.push(message);
-      }
-    });
   }
   return {
     status,

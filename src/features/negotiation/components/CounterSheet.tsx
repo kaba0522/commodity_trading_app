@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { FormStatus } from "@/components/ui/FormStatus";
 import { priceLabel } from "@/core/utils/format";
 import { useVoiceRecorder } from "@/features/negotiation/hooks/useVoiceRecorder";
 import { colors } from "@/theme/colors";
@@ -18,6 +19,9 @@ interface CounterSheetProps {
   theirOffer: number;
   remaining: number;
   max?: number;
+  submitting?: boolean;
+  /** API error from the parent, shown inside the sheet so it is not hidden. */
+  submitError?: string | null;
   onClose: () => void;
   onSubmit: (price: number, note?: string, voice?: VoiceNote) => void;
 }
@@ -30,6 +34,8 @@ export function CounterSheet({
   theirOffer,
   remaining,
   max = 2,
+  submitting = false,
+  submitError,
   onClose,
   onSubmit,
 }: CounterSheetProps) {
@@ -118,8 +124,14 @@ export function CounterSheet({
           : `Counter limit reached (${max}/${max})`}
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {submitError ? <FormStatus kind="error" message={submitError} /> : null}
 
-      <Button title="Send Offer" onPress={submit} disabled={remaining <= 0} />
+      <Button
+        title="Send Offer"
+        onPress={submit}
+        loading={submitting}
+        disabled={remaining <= 0 || submitting}
+      />
     </Sheet>
   );
 }

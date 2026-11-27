@@ -196,6 +196,8 @@ export interface NegotiationMessage {
   byUserId?: string;
   /** Admin acted on behalf of this party. */
   onBehalf?: boolean;
+  /** Backend timestamp used only to interleave offers and chat chronologically. */
+  sortAt?: number;
 }
 
 /** Captured when both sides agree and the broker has been chosen. */
@@ -260,4 +262,18 @@ export interface NegotiationThread {
   /** Buyer still has to pick a broker on the resulting trade. */
   brokerPending?: boolean;
   buyerCanChooseBroker?: boolean;
+
+  /* ---- §22D turn / pending-offer workflow ---- */
+  /** Backend `turnUserId` — used when `isMyTurn` is not sent. */
+  turnUserId?: string;
+  /** True when this user must accept, decline or counter next. */
+  isMyTurn?: boolean;
+  /** Latest pending offer from the backend `offers[]` array. */
+  pendingOffer?: {
+    id: string;
+    author: "you" | "them";
+    price: number;
+    bags: number;
+    isSystem: boolean;
+  };
 }
