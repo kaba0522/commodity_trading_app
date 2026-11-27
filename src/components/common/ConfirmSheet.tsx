@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   confirmBtn: {
-    backgroundColor: colors.danger,
+    backgroundColor: colors.dangerText,
   },
   btnBusy: {
     opacity: 0.7,

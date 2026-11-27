@@ -460,6 +460,9 @@ function normalizeListing(
       : undefined;
   const sellerId = pickOwnerId(obj);
   const bags = pickNumber(obj, "quantityBags", "bags");
+  // Buyable quantity is lower than the listed quantity once trades happen.
+  // Fall back to `bags` only for older payloads that omit availability.
+  const availableBags = pickNumber(obj, "availabilityBags", "availableBags") ?? bags;
   const categoryId = pickRelatedId(obj, ["categoryId", "category_id"], "category");
   const commodityId = pickRelatedId(
     obj,
@@ -488,6 +491,7 @@ function normalizeListing(
     photoUrls: pickStringArray(obj, "photoUrls", "photo_urls"),
     videoUrls: pickStringArray(obj, "videoUrls", "video_urls"),
     ...(bags != null ? { bags } : {}),
+    ...(availableBags != null ? { availableBags } : {}),
     ...(status ? { status } : {}),
     ...(sellerId ? { sellerId } : {}),
   } as Listing;

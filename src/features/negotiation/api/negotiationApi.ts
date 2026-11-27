@@ -73,6 +73,7 @@ function dataEnvelope(raw: unknown): Obj {
 
 function partyName(...values: unknown[]): string {
   for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
     if (!isObj(value)) continue;
     const name = text(value, "firmName", "name", "fullName", "buyerName", "sellerName");
     if (name) return name;
@@ -233,6 +234,10 @@ export function normalizeThread(
   const buyer = obj(record["buyer"]);
   const seller = obj(record["seller"]);
   const counterParty = obj(record["counterparty"]);
+  const listingSeller = obj(listing["seller"]);
+  const listingUser = obj(listing["user"]);
+  const requirement = obj(record["requirement"]);
+  const requirementBuyer = obj(requirement["user"]);
   const roleValue = text(record, "myRole").toLowerCase();
   const role: NegotiationRole =
     roleValue === "seller" || roleValue === "buyer" ? roleValue : defaultRole;
@@ -288,16 +293,33 @@ export function normalizeThread(
   const tradeBags = number(trade, "quantityBags");
   const brokerPending =
     trade["brokerPending"] === true || trade["buyerCanChooseBroker"] === true;
+  const quality =
+    text(record, "quality", "sellerQuality", "qualityName", "grade") ||
+    text(listing, "quality", "sellerQuality", "qualityName", "grade") ||
+    text(requirement, "quality", "qualityName", "grade");
+
+  // The backend may include both buyer and seller. Pick the side opposite the
+  // signed-in role so a buyer sees the seller (not their own buyer name).
+  const namedCounterparty =
+    role === "buyer"
+      ? partyName(seller, listingSeller, listingUser, otherParty, counterParty)
+      : partyName(buyer, requirementBuyer, otherParty, counterParty);
+  const counterparty =
+    namedCounterparty ||
+    text(
+      record,
+      role === "buyer" ? "sellerName" : "buyerName",
+      "counterparty",
+      "otherPartyName",
+    ) ||
+    (role === "buyer" ? "Seller" : "Buyer");
 
   return {
     id,
     role,
     listingId: text(listing, "id") || text(record, "listingId") || undefined,
     tradeId: text(trade, "id") || text(record, "tradeId") || undefined,
-    counterparty:
-      partyName(otherParty, buyer, seller, counterParty) ||
-      text(record, "counterparty", "otherPartyName") ||
-      (role === "buyer" ? "Seller" : "Buyer"),
+    counterparty,
     item:
       text(record, "item", "itemName") ||
       text(listing, "itemName", "item", "name") ||
@@ -306,6 +328,7 @@ export function normalizeThread(
       text(obj(listing["category"]), "name") ||
       text(record, "category", "categoryName") ||
       "Uncategorized",
+    ...(quality ? { quality } : {}),
     listedPrice,
     availableBags,
     requestedBags,

@@ -39,8 +39,10 @@ export interface Listing {
   weightKg?: number | null;
   seller: string;
   price: number;
-  /** Backend `quantityBags` — how many bags the seller has on offer. */
+  /** Backend `quantityBags` — how many bags the seller listed in total. */
   bags?: number;
+  /** Backend `availabilityBags` — bags still buyable after earlier trades. */
+  availableBags?: number;
   moisture?: string;
   color?: string;
   size?: string;
@@ -217,6 +219,8 @@ export interface NegotiationThread {
   /** "Rajma · Disco · Bold" style display label. */
   item: string;
   category: string;
+  /** Quality/grade for the listing or requirement, when the backend sends it. */
+  quality?: string;
   /** Listing price (buyer) or buyer's target price (seller). */
   listedPrice: number;
   availableBags: number;

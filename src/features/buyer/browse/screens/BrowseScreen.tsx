@@ -86,6 +86,8 @@ export function BrowseScreen({ browseBase = "/browse" }: BrowseScreenProps) {
         seller: row.seller,
         price: String(row.price),
         bags: String(row.bags ?? ""),
+        availableBags:
+          row.availableBags != null ? String(row.availableBags) : "",
         paymentTerms:
           row.paymentTerms !== null && row.paymentTerms !== undefined
             ? String(row.paymentTerms)

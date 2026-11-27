@@ -11,6 +11,8 @@ export const colors = {
   primaryTint: "#EAF0FF",
   onPrimary: "#FFFFFF",
   danger: "#E53238",
+  /** Prototype `--color-danger-700`, used for inline destructive text buttons. */
+  dangerText: "#B02A37",
   dangerBg: "#FDECEC",
   success: "#2E7D32",
   successBg: "#E9F5E9",

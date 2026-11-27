@@ -45,6 +45,7 @@ type DetailParams = {
   seller?: string | string[];
   price?: string | string[];
   bags?: string | string[];
+  availableBags?: string | string[];
   paymentTerms?: string | string[];
   priceValidUntil?: string | string[];
   sellerListingCount?: string | string[];
@@ -95,6 +96,7 @@ export function ListingDetailScreen({
     seller: stringParam(params.seller),
     price: stringParam(params.price),
     bags: stringParam(params.bags),
+    availableBags: stringParam(params.availableBags),
     paymentTerms: stringParam(params.paymentTerms),
     priceValidUntil: stringParam(params.priceValidUntil),
   });
@@ -110,7 +112,13 @@ export function ListingDetailScreen({
 
   const requestedBags = numberParam(params.requestedBags, 0);
   const forceClosed = stringParam(params.simulateCutoff) === "1";
-  const availableBags = listing?.bags ?? 0;
+  // `bags` is the total listed quantity; `availableBags` is what can be bought
+  // right now after earlier trades. The prototype's qty-mismatch dialog sits
+  // between those two numbers.
+  const listedBags = listing?.bags ?? 0;
+  const availableBags = listing?.availableBags ?? listedBags;
+  const buyRequestedBags =
+    requestedBags > 0 ? requestedBags : listedBags > 0 ? listedBags : availableBags;
 
   function viewAllFromSeller() {
     if (!listing) return;
@@ -126,10 +134,15 @@ export function ListingDetailScreen({
     else setCutoffOpen(true);
   }
 
-  function showError(e: unknown, fallbackMessage: string): boolean {
+  function showError(
+    e: unknown,
+    fallbackMessage: string,
+    attemptedBags = buyRequestedBags,
+  ): boolean {
     const info = getPartialFillInfo(e);
-    if (info && !partial) {
-      setPartial(info);
+    if (info) {
+      setPartial({ ...info, requested: info.requested ?? attemptedBags });
+      setFormError(null);
       setQtyOpen(true);
       return true;
     }
@@ -152,7 +165,7 @@ export function ListingDetailScreen({
       });
       router.push({ pathname: "/negotiation/[id]", params: { id: thread.id } });
     } catch (e) {
-      showError(e, "Could not send your offer");
+      showError(e, "Could not send your offer", draft.bags);
     } finally {
       setBusy(false);
     }
@@ -176,7 +189,7 @@ export function ListingDetailScreen({
         },
       });
     } catch (e) {
-      showError(e, "Could not confirm the trade");
+      showError(e, "Could not confirm the trade", bags);
     } finally {
       setBusy(false);
     }
@@ -184,13 +197,18 @@ export function ListingDetailScreen({
 
   function handleBuy() {
     if (!listing) return;
-    const wanted = requestedBags > 0 ? requestedBags : availableBags;
+    const wanted = buyRequestedBags > 0 ? buyRequestedBags : 1;
     if (availableBags > 0 && wanted > availableBags) {
-      setPartial({ available: availableBags, price: listing.price });
+      setPartial({
+        available: availableBags,
+        requested: wanted,
+        price: listing.price,
+      });
+      setFormError(null);
       setQtyOpen(true);
       return;
     }
-    void directTrade(wanted > 0 ? wanted : 1);
+    void directTrade(wanted);
   }
 
   const hasMedia = Boolean(
@@ -370,7 +388,7 @@ export function ListingDetailScreen({
 
           <QtyMismatchDialog
             visible={qtyOpen}
-            requestedBags={requestedBags || availableBags}
+            requestedBags={partial?.requested ?? buyRequestedBags ?? availableBags}
             availableBags={partial?.available ?? availableBags}
             price={partial?.price ?? listing.price}
             onCancel={() => {

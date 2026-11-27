@@ -172,7 +172,7 @@ export function ListingDetailScreen() {
                 accessibilityLabel="Unlist listing"
               >
                 {isWithdrawing ? (
-                  <ActivityIndicator size="small" color={colors.danger} />
+                  <ActivityIndicator size="small" color={colors.dangerText} />
                 ) : (
                   <Text style={styles.withdrawActionText}>Unlist</Text>
                 )}
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   withdrawActionText: {
-    color: colors.danger,
+    color: colors.dangerText,
     fontSize: 13,
     fontWeight: "700",
   },

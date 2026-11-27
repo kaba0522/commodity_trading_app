@@ -101,10 +101,15 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
     return seed.id ?? "";
   }
 
-  function showError(e: unknown, fallbackMessage: string): boolean {
+  function showError(
+    e: unknown,
+    fallbackMessage: string,
+    attemptedBags = seed.requestedBags,
+  ): boolean {
     const info = getPartialFillInfo(e);
-    if (info && !partial) {
-      setPartial(info);
+    if (info) {
+      setPartial({ ...info, requested: info.requested ?? attemptedBags });
+      setFormError(null);
       setQtyOpen(true);
       return true;
     }
@@ -130,7 +135,7 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
       });
       router.push({ pathname: "/negotiation/[id]", params: { id: thread.id } });
     } catch (e) {
-      showError(e, "Could not send your offer");
+      showError(e, "Could not send your offer", draft.bags);
     } finally {
       setBusy(false);
     }
@@ -157,7 +162,7 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
         },
       });
     } catch (e) {
-      showError(e, "Could not confirm the trade");
+      showError(e, "Could not confirm the trade", bags);
     } finally {
       setBusy(false);
     }
@@ -174,7 +179,12 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
       return;
     }
     if (seed.availableBags > 0 && seed.requestedBags > seed.availableBags) {
-      setPartial({ available: seed.availableBags, price: seed.listedPrice });
+      setPartial({
+        available: seed.availableBags,
+        requested: seed.requestedBags,
+        price: seed.listedPrice,
+      });
+      setFormError(null);
       setQtyOpen(true);
       return;
     }
@@ -288,7 +298,7 @@ export function ListingOfferScreen({ role, seed: seedProp }: ListingOfferScreenP
 
       <QtyMismatchDialog
         visible={qtyOpen}
-        requestedBags={seed.requestedBags}
+        requestedBags={partial?.requested ?? seed.requestedBags}
         availableBags={dialogAvailable}
         price={dialogPrice}
         onCancel={() => {

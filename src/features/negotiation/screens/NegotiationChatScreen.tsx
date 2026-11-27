@@ -34,7 +34,7 @@ import type { NegotiationMessage, NegotiationThread, VoiceNote } from "@/types/d
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface NegotiationChatScreenProps {
   id?: string;
@@ -55,6 +55,20 @@ function actionableOffer(thread: NegotiationThread): NegotiationMessage | null {
     }
   }
   return null;
+}
+
+/** Prototype chat header: "Rajma · Disco · Bold" without duplicated parts. */
+function listingLabel(thread: NegotiationThread): string {
+  let label = thread.item?.trim() || "Negotiation";
+  const category = thread.category?.trim();
+  const quality = thread.quality?.trim();
+  if (category && !label.toLowerCase().includes(category.toLowerCase())) {
+    label = `${category} · ${label}`;
+  }
+  if (quality && !label.toLowerCase().includes(quality.toLowerCase())) {
+    label = `${label} · ${quality}`;
+  }
+  return label;
 }
 
 /** Shared negotiation chat for both roles — the thread decides whose UI it is. */
@@ -117,6 +131,7 @@ export function NegotiationChatScreen({
   const thread = threadOrNull;
   const theirPrice = latestCounterPrice(thread) ?? latestOfferPrice(thread);
   const remaining = countersRemaining(thread);
+  const counterMax = thread.counters?.max ?? 2;
   const finalPrice = thread.trade?.price ?? thread.agreedPrice ?? latestOfferPrice(thread);
   const finalBags = thread.trade?.bags ?? thread.requestedBags;
   const offerToActOn = actionableOffer(thread);
@@ -128,10 +143,15 @@ export function NegotiationChatScreen({
     return false;
   }
 
-  function showError(e: unknown, fallbackMessage: string): boolean {
+  function showError(
+    e: unknown,
+    fallbackMessage: string,
+    attemptedBags = thread.requestedBags,
+  ): boolean {
     const info = getPartialFillInfo(e);
-    if (info && !partial) {
-      setPartial(info);
+    if (info) {
+      setPartial({ ...info, requested: info.requested ?? attemptedBags });
+      setFormError(null);
       setQtyOpen(true);
       return true;
     }
@@ -171,7 +191,7 @@ export function NegotiationChatScreen({
       });
       router.push({ pathname: "/negotiation/[id]", params: { id: next.id } });
     } catch (e) {
-      showError(e, "Could not start a new offer");
+      showError(e, "Could not start a new offer", draft.bags);
     } finally {
       setBusy(false);
     }
@@ -202,7 +222,7 @@ export function NegotiationChatScreen({
         });
       }
     } catch (e) {
-      showError(e, "Could not accept the offer");
+      showError(e, "Could not accept the offer", bags);
     } finally {
       setBusy(false);
     }
@@ -216,7 +236,12 @@ export function NegotiationChatScreen({
         : null;
     const available = serverAvailable ?? localAvailable;
     if (available) {
-      setPartial({ available, price: partial?.price ?? theirPrice });
+      setPartial({
+        available,
+        requested: partial?.requested ?? thread.requestedBags,
+        price: partial?.price ?? theirPrice,
+      });
+      setFormError(null);
       setQtyOpen(true);
       return;
     }
@@ -278,7 +303,7 @@ export function NegotiationChatScreen({
         <View style={styles.headerText}>
           <Text style={styles.counterparty}>{thread.counterparty}</Text>
           <Text style={styles.item} numberOfLines={1}>
-            {thread.item}
+            {listingLabel(thread)}
           </Text>
         </View>
         {conversationOpen ? (
@@ -324,34 +349,37 @@ export function NegotiationChatScreen({
 
         {thread.status === "your_turn" ? (
           <View style={styles.actionStack}>
-            <Button
+            <ChatActionButton
               title={`Accept ${priceLabel(theirPrice)}`}
+              variant="primary"
               onPress={handleAccept}
               disabled={busy}
             />
             <View style={styles.actionRow}>
+              {remaining > 0 ? (
+                <View style={styles.actionFlex}>
+                  <ChatActionButton
+                    title="Counter offer"
+                    onPress={() => {
+                      if (offersAllowed()) setCounterOpen(true);
+                    }}
+                    disabled={busy}
+                  />
+                </View>
+              ) : null}
               <View style={styles.actionFlex}>
-                <Button
-                  title="Counter offer"
-                  variant="secondary"
-                  onPress={() => {
-                    if (remaining > 0 && offersAllowed()) setCounterOpen(true);
-                  }}
-                  disabled={busy || remaining <= 0}
-                />
-              </View>
-              <View style={styles.actionFlex}>
-                <Button
+                <ChatActionButton
                   title="Decline"
-                  variant="secondary"
                   onPress={() => void decline()}
                   disabled={busy}
                 />
               </View>
             </View>
-            <Text style={styles.limitNote}>
-              {remaining > 0 ? `${remaining} counter offer(s) remaining` : "Counter limit reached"}
-            </Text>
+            {remaining <= 0 ? (
+              <Text style={styles.limitNote}>
+                Counter limit reached ({counterMax}/{counterMax})
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -460,7 +488,7 @@ export function NegotiationChatScreen({
 
       <QtyMismatchDialog
         visible={qtyOpen}
-        requestedBags={thread.requestedBags}
+        requestedBags={partial?.requested ?? thread.requestedBags}
         availableBags={partial?.available ?? thread.availableBags}
         price={partial?.price ?? theirPrice}
         onCancel={() => {
@@ -483,20 +511,60 @@ function bagsSafe(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
+/** Prototype action-bar button: solid primary accept, neutral outlined secondary. */
+function ChatActionButton({
+  title,
+  onPress,
+  variant = "outline",
+  disabled = false,
+}: {
+  title: string;
+  onPress: () => void;
+  variant?: "primary" | "outline";
+  disabled?: boolean;
+}) {
+  const primary = variant === "primary";
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.chatAction,
+        primary ? styles.chatActionPrimary : styles.chatActionOutline,
+        (pressed || disabled) && styles.chatActionDisabled,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
+      <Text
+        style={primary ? styles.chatActionTextPrimary : styles.chatActionTextOutline}
+      >
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
 function PressableWithdraw({
-  busy: _busy,
+  busy,
   onPress,
 }: {
   busy: boolean;
   onPress: () => void;
 }) {
   return (
-    <Button
-      title="Withdraw"
-      variant="secondary"
+    <Pressable
       onPress={onPress}
-      disabled={_busy}
-    />
+      disabled={busy}
+      style={({ pressed }) => [
+        styles.withdrawButton,
+        (pressed || busy) && styles.withdrawDisabled,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Withdraw offer"
+    >
+      <Text style={styles.withdrawText}>{busy ? "Withdrawing…" : "Withdraw"}</Text>
+    </Pressable>
   );
 }
 
@@ -539,6 +607,20 @@ const styles = StyleSheet.create({
   item: {
     fontSize: 12,
     color: colors.muted,
+  },
+  withdrawButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "transparent",
+  },
+  withdrawText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.dangerText,
+  },
+  withdrawDisabled: {
+    opacity: 0.6,
   },
   contextBar: {
     flexDirection: "row",
@@ -583,6 +665,35 @@ const styles = StyleSheet.create({
   },
   actionFlex: {
     flex: 1,
+  },
+  chatAction: {
+    height: 44,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chatActionPrimary: {
+    height: 46,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chatActionOutline: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+  },
+  chatActionTextPrimary: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  chatActionTextOutline: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  chatActionDisabled: {
+    opacity: 0.45,
   },
   centeredNote: {
     alignItems: "center",

@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 12,
     fontWeight: "600",
-    color: colors.danger,
+    color: colors.dangerText,
   },
   withdrawBusy: {
     opacity: 0.6,

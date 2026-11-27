@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   withdrawActionText: {
-    color: colors.danger,
+    color: colors.dangerText,
   },
   center: {
     alignItems: "center",

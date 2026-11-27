@@ -22,6 +22,7 @@ export function ListingNegotiationScreen() {
     price?: string;
     weight?: string;
     bags?: string;
+    availableBags?: string;
   }>();
   const [quantity, setQuantity] = useState("");
   const [offer, setOffer] = useState("");
@@ -29,7 +30,7 @@ export function ListingNegotiationScreen() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const askingPrice = Number(params.price ?? 0);
-  const availableBags = Number(params.bags ?? 0);
+  const availableBags = Number(params.availableBags ?? params.bags ?? 0);
   const formattedPrice = Number.isFinite(askingPrice)
     ? priceLabel(askingPrice)
     : priceLabel(0);

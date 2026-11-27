@@ -10,28 +10,41 @@ import type { NegotiationThread } from "@/types/domain";
 
 export interface PartialFillInfo {
   available: number;
+  /** Bag count the buyer asked for, for the prototype's qty-mismatch dialog. */
+  requested?: number;
   price?: number;
 }
 
-/** Server rejections like `{ code: "PARTIAL_FILL_REQUIRED", details: { available } }`. */
+const PARTIAL_FILL_CODES = new Set(["PARTIAL_FILL_REQUIRED", "NOT_ENOUGH_BAGS"]);
+
+/**
+ * Server shortfalls like:
+ * `{ code: "NOT_ENOUGH_BAGS", details: { available: 10 } }`
+ */
 export function getPartialFillInfo(error: unknown): PartialFillInfo | null {
-  if (!(error instanceof ApiError) || error.code !== "PARTIAL_FILL_REQUIRED") return null;
+  if (!(error instanceof ApiError) || !error.code || !PARTIAL_FILL_CODES.has(error.code)) {
+    return null;
+  }
   const details = error.details;
   if (!details || typeof details !== "object" || Array.isArray(details)) return null;
   const record = details as Record<string, unknown>;
-  const rawAvailable =
-    record["available"] ?? record["availableBags"] ?? record["quantityBags"] ?? record["bags"];
-  const available =
-    typeof rawAvailable === "string" ? Number(rawAvailable) : rawAvailable;
-  if (typeof available !== "number" || !Number.isFinite(available) || available <= 0) {
-    return null;
-  }
+  const readCount = (value: unknown): number | undefined => {
+    const n = typeof value === "string" ? Number(value) : value;
+    return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const available = readCount(
+    record["available"] ?? record["availableBags"] ?? record["quantityBags"] ?? record["bags"],
+  );
+  if (!available) return null;
+  const requested = readCount(
+    record["requested"] ?? record["requestedBags"] ?? record["bagsRequested"],
+  );
   const rawPrice = record["price"] ?? record["finalPrice"];
-  const price = typeof rawPrice === "string" ? Number(rawPrice) : rawPrice;
+  const price = readCount(rawPrice);
   return {
     available,
-    price:
-      typeof price === "number" && Number.isFinite(price) && price > 0 ? price : undefined,
+    ...(requested ? { requested } : {}),
+    ...(price ? { price } : {}),
   };
 }
 

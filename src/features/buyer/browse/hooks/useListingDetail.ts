@@ -13,6 +13,7 @@ export interface BrowseDetailSeed {
   seller?: string;
   price?: string;
   bags?: string;
+  availableBags?: string;
   paymentTerms?: string;
   priceValidUntil?: string;
 }
@@ -22,6 +23,7 @@ function seedFromParams(seed: BrowseDetailSeed): Listing | null {
   if (!seed.item || !seed.seller) return null;
   const price = Number(seed.price ?? 0);
   const bags = Number(seed.bags ?? "");
+  const availableBags = Number(seed.availableBags ?? "");
   const paymentTerms = Number(seed.paymentTerms ?? "");
   return {
     id: Number(seed.id ?? 0) || (seed.id ?? 0),
@@ -32,6 +34,9 @@ function seedFromParams(seed: BrowseDetailSeed): Listing | null {
     seller: seed.seller,
     price: Number.isFinite(price) ? price : 0,
     ...(Number.isInteger(bags) && bags > 0 ? { bags } : {}),
+    ...(Number.isInteger(availableBags) && availableBags >= 0
+      ? { availableBags }
+      : {}),
     ...(Number.isInteger(paymentTerms) && paymentTerms >= 0
       ? { paymentTerms }
       : {}),
@@ -73,6 +78,9 @@ export function useListingDetail(seed: BrowseDetailSeed) {
           fetched.priceValidUntil ??
           (current?.id === fetched.id ? current.priceValidUntil : null) ??
           null,
+        availableBags:
+          fetched.availableBags ??
+          (current?.id === fetched.id ? current.availableBags : undefined),
       }));
     } catch (e) {
       // Keep the seeded row when refresh fails — the page still works.
